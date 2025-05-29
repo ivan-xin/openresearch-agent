@@ -18,11 +18,15 @@ class Settings(BaseSettings):
     port: int = Field(default=8080, env="PORT")
     
     # 数据库配置
-    database_url: Optional[str] = Field(default=None, env="DATABASE_URL")
+    # database_url: Optional[str] = Field(default=None, env="DATABASE_URL")
     
+    # 会话配置
+    session_timeout: int = Field(default=3600, env="SESSION_TIMEOUT")  # 会话超时时间（秒）
+    max_conversation_length: int = Field(default=100, env="MAX_CONVERSATION_LENGTH")  # 最大对话长度
+
     # 缓存配置 - 新增
-    cache_type: str = Field(default="memory", env="CACHE_TYPE")
-    cache_ttl: int = Field(default=3600, env="CACHE_TTL")
+    # cache_type: str = Field(default="memory", env="CACHE_TYPE")
+    # cache_ttl: int = Field(default=3600, env="CACHE_TTL")
     
     class Config:
         env_file = ".env"
