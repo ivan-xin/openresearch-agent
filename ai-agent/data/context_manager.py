@@ -4,8 +4,8 @@
 from typing import Optional, List
 from data.models.conversation import Conversation
 from data.models.message import Message
-from data.repositories.conversation_repository import conversation_repo
-from data.repositories.message_repository import message_repo
+from .repositories.conversation_repository import conversation_repo
+from .repositories.message_repository import message_repo
 from data.database import db_manager
 from configs.settings import settings
 from utils.logger import get_logger
