@@ -15,8 +15,8 @@ class PaperInfo(BaseModel):
     abstract: Optional[str] = Field(None, description="摘要")
     url: Optional[str] = Field(None, description="论文链接")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "id": "paper_123",
                 "title": "Attention Is All You Need",
@@ -28,6 +28,7 @@ class PaperInfo(BaseModel):
                 "url": "https://arxiv.org/abs/1706.03762"
             }
         }
+    }
 
 class AuthorInfo(BaseModel):
     """作者信息模型"""
@@ -39,8 +40,8 @@ class AuthorInfo(BaseModel):
     citation_count: Optional[int] = Field(None, description="总引用数")
     research_interests: List[str] = Field(default_factory=list, description="研究兴趣")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "id": "author_123",
                 "name": "Ashish Vaswani",
@@ -51,6 +52,7 @@ class AuthorInfo(BaseModel):
                 "research_interests": ["machine learning", "natural language processing", "attention mechanisms"]
             }
         }
+    }
 
 class SearchResult(BaseModel):
     """搜索结果模型"""
@@ -61,8 +63,8 @@ class SearchResult(BaseModel):
     search_time: float = Field(..., description="搜索耗时")
     filters: Dict[str, Any] = Field(default_factory=dict, description="应用的过滤器")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "query": "transformer attention mechanism",
                 "total_count": 1500,
@@ -75,6 +77,7 @@ class SearchResult(BaseModel):
                 }
             }
         }
+    }
 
 class NetworkNode(BaseModel):
     """网络节点模型"""
@@ -83,8 +86,8 @@ class NetworkNode(BaseModel):
     type: str = Field(..., description="节点类型")
     properties: Dict[str, Any] = Field(default_factory=dict, description="节点属性")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "id": "paper_123",
                 "label": "Attention Is All You Need",
@@ -96,6 +99,7 @@ class NetworkNode(BaseModel):
                 }
             }
         }
+    }
 
 class NetworkEdge(BaseModel):
     """网络边模型"""
@@ -105,8 +109,8 @@ class NetworkEdge(BaseModel):
     weight: Optional[float] = Field(None, description="边权重")
     properties: Dict[str, Any] = Field(default_factory=dict, description="边属性")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "source": "paper_123",
                 "target": "paper_456",
@@ -117,6 +121,7 @@ class NetworkEdge(BaseModel):
                 }
             }
         }
+    }
 
 class NetworkAnalysisResult(BaseModel):
     """网络分析结果模型"""
@@ -125,8 +130,8 @@ class NetworkAnalysisResult(BaseModel):
     metrics: Dict[str, Any] = Field(..., description="网络指标")
     analysis_type: str = Field(..., description="分析类型")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "nodes": [],
                 "edges": [],
@@ -139,6 +144,7 @@ class NetworkAnalysisResult(BaseModel):
                 "analysis_type": "citation_network"
             }
         }
+    }
 
 class TrendData(BaseModel):
     """趋势数据模型"""
@@ -146,8 +152,8 @@ class TrendData(BaseModel):
     value: float = Field(..., description="数值")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="元数据")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "period": "2023",
                 "value": 1500.0,
@@ -157,6 +163,7 @@ class TrendData(BaseModel):
                 }
             }
         }
+    }
 
 class TrendAnalysisResult(BaseModel):
     """趋势分析结果模型"""
@@ -166,8 +173,8 @@ class TrendAnalysisResult(BaseModel):
     analysis_type: str = Field(..., description="分析类型")
     insights: List[str] = Field(default_factory=list, description="分析洞察")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "topic": "transformer architecture",
                 "time_range": {"start": "2017", "end": "2024"},
@@ -179,3 +186,4 @@ class TrendAnalysisResult(BaseModel):
                 ]
             }
         }
+    }

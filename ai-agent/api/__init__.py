@@ -1,12 +1,13 @@
 """
-API包
+API包 - 路由和中间件
 """
-from .chat import router as chat_router
-from .conversation import router as conversation_router
-from .health import router as health_router
+# 修改为绝对导入
+from api import chat
+from api import conversation  
+from api import health
 
 __all__ = [
-    "chat_router",
-    "conversation_router",
-    "health_router"
+    "chat",
+    "conversation", 
+    "health"
 ]

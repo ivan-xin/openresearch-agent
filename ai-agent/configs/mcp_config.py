@@ -1,7 +1,8 @@
 """
 MCP服务器配置
 """
-from pydantic import BaseSettings, Field
+from pydantic_settings import BaseSettings
+from pydantic import Field
 
 class MCPConfig(BaseSettings):
     """MCP服务器配置"""
@@ -16,9 +17,11 @@ class MCPConfig(BaseSettings):
     def base_url(self) -> str:
         return f"http://{self.host}:{self.port}"
     
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = {
+        "env_file": ".env",
+        "env_file_encoding": "utf-8",
+        "extra": "allow"  # 允许额外的环境变量
+    }
 
 # 全局MCP配置实例
 mcp_config = MCPConfig()

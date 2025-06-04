@@ -14,8 +14,8 @@ class ChatResponse(BaseModel):
     intent_type: Optional[str] = Field(None, description="识别的意图类型")
     confidence: Optional[float] = Field(None, description="意图识别置信度")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "message": "我找到了以下关于Transformer架构的最新论文：\n\n1. **Attention Is All You Need** - Vaswani et al. (2017)\n   - 引用次数: 50,000+\n   - 摘要: 提出了完全基于注意力机制的Transformer模型...",
                 "conversation_id": "conv_123456",
@@ -29,6 +29,7 @@ class ChatResponse(BaseModel):
                 "confidence": 0.95
             }
         }
+    }
 
 class MessageResponse(BaseModel):
     """消息响应模型"""
@@ -38,8 +39,8 @@ class MessageResponse(BaseModel):
     timestamp: str = Field(..., description="消息时间戳")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="消息元数据")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "id": "msg_123",
                 "role": "user",
@@ -51,6 +52,7 @@ class MessageResponse(BaseModel):
                 }
             }
         }
+    }
 
 class ConversationResponse(BaseModel):
     """会话响应模型"""
@@ -61,8 +63,8 @@ class ConversationResponse(BaseModel):
     message_count: int = Field(..., description="消息总数")
     messages: List[MessageResponse] = Field(..., description="消息列表")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "conversation_id": "conv_123",
                 "title": "深度学习论文搜索",
@@ -72,6 +74,7 @@ class ConversationResponse(BaseModel):
                 "messages": []
             }
         }
+    }
 
 class ConversationSummary(BaseModel):
     """会话摘要模型"""
@@ -83,8 +86,8 @@ class ConversationSummary(BaseModel):
     last_message: Optional[str] = Field(None, description="最后一条消息")
     last_message_role: Optional[str] = Field(None, description="最后一条消息的角色")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "conversation_id": "conv_123",
                 "title": "深度学习论文搜索",
@@ -95,6 +98,7 @@ class ConversationSummary(BaseModel):
                 "last_message_role": "user"
             }
         }
+    }
 
 class ConversationListResponse(BaseModel):
     """会话列表响应模型"""
@@ -104,8 +108,8 @@ class ConversationListResponse(BaseModel):
     page_size: int = Field(default=20, description="每页大小")
     has_more: bool = Field(default=False, description="是否有更多数据")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "conversations": [],
                 "total": 25,
@@ -114,6 +118,7 @@ class ConversationListResponse(BaseModel):
                 "has_more": True
             }
         }
+    }
 
 class ErrorResponse(BaseModel):
     """错误响应模型"""
@@ -123,8 +128,8 @@ class ErrorResponse(BaseModel):
     details: Optional[Dict[str, Any]] = Field(None, description="错误详情")
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="错误时间")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "error": "Intent analysis failed",
                 "error_code": "INTENT_001",
@@ -136,6 +141,7 @@ class ErrorResponse(BaseModel):
                 "timestamp": "2024-01-15T10:30:00Z"
             }
         }
+    }
 
 class HealthResponse(BaseModel):
     """健康检查响应模型"""
@@ -145,8 +151,8 @@ class HealthResponse(BaseModel):
     timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="检查时间")
     details: Optional[Dict[str, Any]] = Field(None, description="详细信息")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "status": "healthy",
                 "service": "openresearch-agent",
@@ -158,4 +164,4 @@ class HealthResponse(BaseModel):
                 }
             }
         }
-
+    }

@@ -15,8 +15,8 @@ from .task import (
 )
 from .request import (
     ChatRequest,
-    ConversationUpdateRequest,
-    ConversationCreateRequest
+    # ConversationUpdateRequest,
+    # ConversationCreateRequest
 )
 
 from .conversation import (

@@ -7,8 +7,8 @@ import structlog
 from typing import Dict, Any, List, Optional
 from datetime import datetime
 
-from app.configs.mcp_config import mcp_config
-from app.models.task import Task, TaskResult, TaskStatus
+from configs.mcp_config import mcp_config
+from models.task import Task, TaskResult, TaskStatus
 
 logger = structlog.get_logger()
 

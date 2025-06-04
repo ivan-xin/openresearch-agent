@@ -7,8 +7,8 @@ import asyncio
 import time
 from datetime import datetime
 
-from ..services.conversation_service import conversation_service
-from ..utils.logger import get_logger
+from services.conversation_service import conversation_service
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()

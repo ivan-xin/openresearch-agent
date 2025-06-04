@@ -4,11 +4,11 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import Optional
 
-from ..models.request import ChatRequest
-from ..models.response import ChatResponse
-from ..models.conversation import CreateConversationDTO, CreateMessageDTO, MessageRole
-from ..services.conversation_service import conversation_service
-from ..utils.logger import get_logger
+from models.request import ChatRequest
+from models.response import ChatResponse
+from models.conversation import CreateConversationDTO, CreateMessageDTO, MessageRole
+from services.conversation_service import conversation_service
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()

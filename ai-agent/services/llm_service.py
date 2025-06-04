@@ -1,69 +1,113 @@
 """
-大语言模型服务 - MVP版本
+大语言模型服务 - Together.ai专用版本
 """
 import asyncio
 import structlog
+import aiohttp
+import json
 from typing import Dict, Any, Optional, List
-from openai import AsyncOpenAI
-from openai.types.chat import ChatCompletion
 
-from app.configs.llm_config import llm_config
-from app.models.task import Task, TaskResult, TaskStatus
+from configs.llm_config import llm_config
+from models.task import Task, TaskResult, TaskStatus
 
 logger = structlog.get_logger()
 
 class LLMService:
-    """大语言模型服务"""
+    """大语言模型服务 - Together.ai专用"""
     
     def __init__(self):
-        self.client: Optional[AsyncOpenAI] = None
-        self._initialize_client()
+        self.session: Optional[aiohttp.ClientSession] = None
+        self._validate_config()
     
-    def _initialize_client(self):
-        """初始化LLM客户端"""
+    def _validate_config(self):
+        """验证配置"""
         try:
-            if llm_config.provider == "openai":
-                self.client = AsyncOpenAI(
-                    api_key=llm_config.openai_api_key,
-                    base_url=llm_config.openai_base_url,
-                    timeout=llm_config.timeout
-                )
-                logger.info("OpenAI client initialized successfully")
-            else:
-                raise ValueError(f"Unsupported LLM provider: {llm_config.provider}")
-                
+            llm_config.validate_config()
+            logger.info("Together.ai LLM service initialized", model=llm_config.together_model)
         except Exception as e:
-            logger.error("Failed to initialize LLM client", error=str(e))
+            logger.error("LLM configuration validation failed", error=str(e))
             raise
     
-    async def generate_response(self, messages: List[Dict[str, str]], 
-                              **kwargs) -> str:
+    async def _get_session(self) -> aiohttp.ClientSession:
+        """获取HTTP会话"""
+        if self.session is None or self.session.closed:
+            timeout = aiohttp.ClientTimeout(total=llm_config.timeout)
+            self.session = aiohttp.ClientSession(timeout=timeout)
+        return self.session
+    
+    async def generate_response(self, messages: List[Dict[str, str]], **kwargs) -> str:
         """生成回复"""
         try:
-            # 合并配置参数
-            params = {
-                "model": llm_config.openai_model,
+            session = await self._get_session()
+            
+            # 构建请求参数
+            payload = {
+                "model": llm_config.together_model,
                 "messages": messages,
                 "max_tokens": kwargs.get("max_tokens", llm_config.max_tokens),
                 "temperature": kwargs.get("temperature", llm_config.temperature),
+                "context_length_exceeded_behavior": llm_config.context_length_exceeded_behavior
             }
             
-            logger.debug("Generating LLM response", params=params)
+            # 添加其他可选参数
+            if "top_p" in kwargs:
+                payload["top_p"] = kwargs["top_p"]
+            if "frequency_penalty" in kwargs:
+                payload["frequency_penalty"] = kwargs["frequency_penalty"]
+            if "presence_penalty" in kwargs:
+                payload["presence_penalty"] = kwargs["presence_penalty"]
             
-            # 调用LLM API
-            response: ChatCompletion = await self.client.chat.completions.create(**params)
+            headers = {
+                "accept": "application/json",
+                "content-type": "application/json",
+                "authorization": f"Bearer {llm_config.together_api_key}"
+            }
             
-            # 提取回复内容
-            content = response.choices[0].message.content
+            logger.debug("Generating LLM response", 
+                        model=payload["model"], 
+                        messages_count=len(messages),
+                        max_tokens=payload["max_tokens"])
             
-            logger.info(
-                "LLM response generated successfully",
-                model=params["model"],
-                tokens_used=response.usage.total_tokens if response.usage else None
-            )
-            
-            return content
-            
+            # 发送请求
+            async with session.post(
+                llm_config.together_base_url,
+                json=payload,
+                headers=headers
+            ) as response:
+                if response.status != 200:
+                    error_text = await response.text()
+                    logger.error("Together.ai API error", 
+                               status=response.status, 
+                               error=error_text)
+                    raise Exception(f"Together.ai API error {response.status}: {error_text}")
+                
+                result = await response.json()
+                
+                # 提取回复内容
+                if "choices" in result and len(result["choices"]) > 0:
+                    content = result["choices"][0]["message"]["content"]
+                    
+                    # 记录使用情况
+                    usage = result.get("usage", {})
+                    logger.info(
+                        "LLM response generated successfully",
+                        model=payload["model"],
+                        prompt_tokens=usage.get("prompt_tokens"),
+                        completion_tokens=usage.get("completion_tokens"),
+                        total_tokens=usage.get("total_tokens")
+                    )
+                    
+                    return content
+                else:
+                    logger.error("Invalid response from Together.ai", response=result)
+                    raise Exception("No valid response from Together.ai API")
+                    
+        except aiohttp.ClientError as e:
+            logger.error("HTTP client error", error=str(e))
+            raise Exception(f"Network error: {str(e)}")
+        except json.JSONDecodeError as e:
+            logger.error("JSON decode error", error=str(e))
+            raise Exception(f"Invalid JSON response: {str(e)}")
         except Exception as e:
             logger.error("Failed to generate LLM response", error=str(e))
             raise
@@ -106,7 +150,6 @@ class LLMService:
             )
             
             # 尝试解析JSON响应
-            import json
             try:
                 result = json.loads(response)
                 logger.info("Intent analysis completed", intent=result.get("intent_type"))
@@ -138,20 +181,20 @@ class LLMService:
         try:
             # 构建学术助手系统提示
             system_prompt = """你是一个专业的学术研究助手，专门帮助用户进行论文搜索、作者查询、引用分析等学术研究任务。
+                            请根据提供的研究数据，生成专业、准确、有帮助的回复。回复应该：
+                            1. 直接回答用户的问题
+                            2. 提供具体的数据和信息
+                            3. 使用专业但易懂的语言
+                            4. 如果数据不完整，诚实说明
+                            5. 适当提供进一步研究的建议
 
-                                请根据提供的研究数据，生成专业、准确、有帮助的回复。回复应该：
-                                1. 直接回答用户的问题
-                                2. 提供具体的数据和信息
-                                3. 使用专业但易懂的语言
-                                4. 如果数据不完整，诚实说明
-                                5. 适当提供进一步研究的建议
-
-                                请用中文回复，保持专业和友好的语调。"""
+                            请用中文回复，保持专业和友好的语调。"""
 
             # 构建用户消息，包含查询和数据
             user_content = f"""用户查询：{user_query}
                             研究数据：
                             {json.dumps(research_data, ensure_ascii=False, indent=2)}
+
                             请基于以上数据回答用户的查询。"""
 
             # 构建消息列表
@@ -180,7 +223,7 @@ class LLMService:
         """执行LLM任务"""
         try:
             task.status = TaskStatus.RUNNING
-            task.started_at = asyncio.get_event_loop().time()
+            start_time = asyncio.get_event_loop().time()
             
             logger.info("Executing LLM task", task_id=task.id, task_name=task.name)
             
@@ -198,8 +241,7 @@ class LLMService:
             response = await self.generate_response(messages=messages, **model_params)
             
             # 计算执行时间
-            task.completed_at = asyncio.get_event_loop().time()
-            execution_time = task.completed_at - task.started_at
+            execution_time = asyncio.get_event_loop().time() - start_time
             
             task.status = TaskStatus.COMPLETED
             
@@ -231,22 +273,24 @@ class LLMService:
             
             return {
                 "status": "healthy",
-                "provider": llm_config.provider,
-                "model": llm_config.openai_model
+                "provider": "together.ai",
+                "model": llm_config.together_model,
+                "base_url": llm_config.together_base_url
             }
         except Exception as e:
             logger.error("LLM health check failed", error=str(e))
             return {
                 "status": "unhealthy",
+                "provider": "together.ai",
                 "error": str(e)
             }
     
     async def cleanup(self):
         """清理资源"""
         try:
-            if self.client:
-                await self.client.close()
-                logger.info("LLM client closed successfully")
+            if self.session and not self.session.closed:
+                await self.session.close()
+                logger.info("LLM service HTTP session closed")
         except Exception as e:
             logger.error("Error during LLM service cleanup", error=str(e))
 

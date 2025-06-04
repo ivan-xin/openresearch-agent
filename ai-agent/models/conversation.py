@@ -21,9 +21,9 @@ class Message(BaseModel):
     timestamp: datetime = Field(default_factory=datetime.now, description="消息时间戳")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="消息元数据")
     
-    class Config:
-        use_enum_values = True
-        schema_extra = {
+    model_config = {
+        "use_enum_values": True,
+        "json_schema_extra": {
             "example": {
                 "id": "msg_123456",
                 "conversation_id": "conv_789",
@@ -33,6 +33,8 @@ class Message(BaseModel):
                 "metadata": {}
             }
         }
+    }
+
 
 class Conversation(BaseModel):
     """会话实体模型"""
@@ -43,8 +45,8 @@ class Conversation(BaseModel):
     message_count: int = Field(default=0, description="消息总数")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="会话元数据")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "id": "conv_123456",
                 "title": "Transformer架构研究",
@@ -54,14 +56,15 @@ class Conversation(BaseModel):
                 "metadata": {}
             }
         }
+    }
 
 class ConversationWithMessages(BaseModel):
     """包含消息的完整会话模型"""
     conversation: Conversation = Field(..., description="会话信息")
     messages: List[Message] = Field(..., description="消息列表")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "conversation": {
                     "id": "conv_123456",
@@ -74,6 +77,7 @@ class ConversationWithMessages(BaseModel):
                 "messages": []
             }
         }
+    }
 
 # 简化的DTO
 class CreateConversationDTO(BaseModel):
@@ -81,13 +85,14 @@ class CreateConversationDTO(BaseModel):
     title: Optional[str] = Field(None, description="会话标题", max_length=200)
     initial_message: Optional[str] = Field(None, description="初始消息", max_length=2000)
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "title": "深度学习论文研究",
                 "initial_message": "我想了解最新的深度学习论文"
             }
         }
+    }
 
 class CreateMessageDTO(BaseModel):
     """创建消息DTO"""
@@ -95,12 +100,13 @@ class CreateMessageDTO(BaseModel):
     role: MessageRole = Field(..., description="消息角色")
     content: str = Field(..., description="消息内容", min_length=1, max_length=5000)
     
-    class Config:
-        use_enum_values = True
-        schema_extra = {
+    model_config = {
+        "use_enum_values": True,
+        "json_schema_extra": {
             "example": {
                 "conversation_id": "conv_123456",
                 "role": "user",
                 "content": "请搜索关于BERT模型的论文"
             }
         }
+    }

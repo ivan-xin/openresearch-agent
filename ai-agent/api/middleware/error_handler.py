@@ -2,7 +2,7 @@
 错误处理中间件
 """
 from fastapi import FastAPI, HTTPException
-from ...utils.exceptions import (
+from utils.exceptions import (
     BusinessError, 
     business_error_handler,
     http_error_handler,

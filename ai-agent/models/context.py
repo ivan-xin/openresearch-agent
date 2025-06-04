@@ -12,8 +12,8 @@ class ConversationContext(BaseModel):
     mentioned_entities: Dict[str, List[str]] = Field(default_factory=dict, description="提及的实体")
     research_focus: Optional[str] = Field(None, description="当前研究焦点")
     
-    class Config:
-        schema_extra = {
+    model_config = {
+        "json_schema_extra": {
             "example": {
                 "conversation_id": "conv_123",
                 "recent_queries": [
@@ -35,6 +35,7 @@ class ConversationContext(BaseModel):
                 "research_focus": "transformer_architecture"
             }
         }
+    }
 
 class QueryContext(BaseModel):
     """查询上下文模型"""
@@ -42,12 +43,13 @@ class QueryContext(BaseModel):
     conversation_context: Optional[ConversationContext] = Field(None, description="会话上下文")
     previous_results: List[Dict[str, Any]] = Field(default_factory=list, description="之前的结果")
     
-    class Config:
-        arbitrary_types_allowed = True
-        schema_extra = {
+    model_config = {
+        "arbitrary_types_allowed": True,
+        "json_schema_extra": {
             "example": {
                 "query": "找一些关于transformer的最新论文",
                 "conversation_context": None,
                 "previous_results": []
             }
         }
+    }

@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional
 from datetime import datetime
 from pydantic import BaseModel, Field
 from dataclasses import dataclass, field
-
+from typing import List
 class TaskType(Enum):
     """任务类型枚举"""
     # MCP工具调用任务
@@ -17,6 +17,7 @@ class TaskType(Enum):
     
     # 响应生成任务
     RESPONSE_GENERATION = "response_generation"
+
 
 class TaskStatus(Enum):
     """任务状态枚举"""
@@ -132,3 +133,6 @@ class TaskBuilder:
                 "format_type": format_type
             }
         )
+    
+class TaskPlan:
+    tasks: List[Task]
