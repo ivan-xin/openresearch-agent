@@ -90,6 +90,4 @@ class MessageRepository:
             logger.error("Failed to delete messages", conversation_id=conversation_id, error=str(e))
             raise
 
-# 全局仓库实例
-conversation_repo = ConversationRepository()
 message_repo = MessageRepository()

@@ -174,3 +174,4 @@ class ConversationRepository:
         except Exception as e:
             logger.error("Failed to cleanup old conversations", error=str(e))
             raise
+conversation_repo = ConversationRepository()

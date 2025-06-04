@@ -11,7 +11,7 @@ from models.intent import IntentAnalysisResult
 from models.task import TaskPlan
 from services.llm_service import LLMService
 from services.mcp_client import MCPClient
-from services.context_manager import ContextManager
+from data.context_manager import ContextManager
 from core.intent_analyzer import IntentAnalyzer
 from core.task_orchestrator import TaskOrchestrator
 from core.response_integrator import ResponseIntegrator
@@ -25,6 +25,7 @@ class AcademicAgent:
     def __init__(self):
         # 初始化核心服务
         self.llm_service = LLMService()
+        self.mcp_client = MCPClient() 
         self.context_manager = ContextManager()
         
         # 初始化核心组件
@@ -42,6 +43,8 @@ class AcademicAgent:
             logger.info("Initializing Academic Agent")
             
             # 初始化上下文管理器（包含数据库初始化）
+            await self.llm_service.initialize()
+            await self.mcp_client.initialize()
             await self.context_manager.initialize()
             
             logger.info("Academic Agent initialized successfully")
@@ -49,7 +52,79 @@ class AcademicAgent:
         except Exception as e:
             logger.error("Failed to initialize Academic Agent", error=str(e))
             raise
+
+    async def _extract_context_for_intent(self, conversation: Conversation) -> Dict[str, Any]:
+        """提取用于意图分析的上下文"""
+        context = {}
+        
+        if hasattr(conversation, 'messages') and conversation.messages:
+            # 获取最近的意图类型
+            recent_intents = []
+            for message in conversation.messages[-5:]:  # 最近5条消息
+                if message.role == "assistant" and message.metadata.get("intent_type"):
+                    recent_intents.append(message.metadata["intent_type"])
+            
+            context["recent_intents"] = recent_intents
+        
+        return context
     
+    async def _extract_context_for_response(self, conversation: Conversation) -> Dict[str, Any]:
+        """提取用于响应生成的上下文"""
+        context = {}
+        
+        if hasattr(conversation, 'messages') and conversation.messages:
+            context["conversation_length"] = len(conversation.messages)
+            context["recent_topics"] = []  # 可以添加主题提取逻辑
+        
+        return context
+    
+    async def _execute_task_plan(self, task_plan: TaskPlan, query_id: str) -> Dict[str, Any]:
+        """执行任务计划"""
+        results = {}
+        
+        try:
+            for task in task_plan.tasks:
+                logger.info("Executing task", task_id=task.id, task_type=task.type.value)
+                
+                # 根据任务类型执行
+                if task.type.value == "mcp_tool_call":
+                    result = await self.mcp_client.call_tool(
+                        task.name, 
+                        task.parameters
+                    )
+                    results[task.id] = result
+                else:
+                    logger.warning("Unknown task type", task_type=task.type.value)
+                    results[task.id] = {"error": f"Unknown task type: {task.type.value}"}
+            
+            return results
+            
+        except Exception as e:
+            logger.error("Task execution failed", query_id=query_id, error=str(e))
+            return {"error": str(e)}
+    
+    def _create_clarification_response(self, intent_result: IntentAnalysisResult) -> Dict[str, Any]:
+        """创建澄清响应"""
+        return {
+            "content": intent_result.clarification_questions[0] if intent_result.clarification_questions else "请提供更多信息",
+            "needs_clarification": True,
+            "metadata": {
+                "intent_type": intent_result.primary_intent.type.value,
+                "confidence": intent_result.primary_intent.confidence
+            }
+        }
+    
+    def _create_error_response(self, error_message: str, query_id: str) -> Dict[str, Any]:
+        """创建错误响应"""
+        return {
+            "content": f"抱歉，处理您的请求时遇到了问题：{error_message}",
+            "error": True,
+            "query_id": query_id,
+            "metadata": {
+                "error_message": error_message
+            }
+        }
+
     async def process_query(self, 
                           query: str, 
                           conversation_id: Optional[str] = None,

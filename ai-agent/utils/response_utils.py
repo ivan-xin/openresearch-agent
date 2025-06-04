@@ -3,7 +3,7 @@
 """
 from typing import Any, Dict
 from fastapi import HTTPException
-from app.utils.time_utils import now_ms
+from utils.time_utils import now_ms
 
 def success_response(data: Any = None, message: str = "操作成功") -> Dict[str, Any]:
     """成功响应"""

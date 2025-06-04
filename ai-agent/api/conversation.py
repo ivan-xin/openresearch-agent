@@ -4,10 +4,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from typing import List, Optional
 
-from app.models.response import ConversationResponse, ConversationListResponse
-from app.api.dependencies import get_agent
-from app.core.agent import AcademicAgent
-from app.utils.logger import get_logger
+from models.response import ConversationResponse, ConversationListResponse
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
 router = APIRouter()
@@ -15,10 +13,15 @@ router = APIRouter()
 @router.get("/conversations", response_model=ConversationListResponse)
 async def get_user_conversations(
     user_id: str = Query(..., description="用户ID"),
-    agent: AcademicAgent = Depends(get_agent)
+    req: Request = None
 ) -> ConversationListResponse:
     """获取用户的会话列表"""
     try:
+        # 从应用状态获取agent
+        agent = req.app.state.agent
+        
+        logger.info("Getting user conversations", user_id=user_id)
+        
         conversations = await agent.get_user_conversations(user_id)
         
         return ConversationListResponse(
