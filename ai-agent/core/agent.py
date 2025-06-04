@@ -15,9 +15,9 @@ from models.task import TaskPlan, Task, TaskType
 from services.llm_service import LLMService
 from services.mcp_client import MCPClient
 from data.context_manager import ContextManager
-from core.intent_analyzer import IntentAnalyzer
-from core.task_orchestrator import TaskOrchestrator
-from core.response_integrator import ResponseIntegrator
+from .intent_analyzer import IntentAnalyzer
+from .task_orchestrator import TaskOrchestrator
+from .response_integrator import ResponseIntegrator
 from utils.logger import get_logger
 
 logger = get_logger(__name__)

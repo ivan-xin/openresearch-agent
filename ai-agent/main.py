@@ -11,11 +11,9 @@ from api.routes import api_router
 from api.middleware.error_handler import add_error_handlers
 from api.middleware.logging import add_logging_middleware
 
-# 核心组件
-from core.agent import AcademicAgent
-
 # 数据层
 from data import initialize_data_layer, cleanup_data_layer
+from core import AcademicAgent
 
 # 配置和工具
 from configs.settings import settings

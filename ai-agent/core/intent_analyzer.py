@@ -5,7 +5,7 @@ import json
 from typing import Dict, Any, List
 from models.intent import Intent, IntentType, IntentAnalysisResult
 from services.llm_service import LLMService
-from prompts.intent_prompts import IntentPrompts
+from prompts import IntentPrompts
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
