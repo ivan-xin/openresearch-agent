@@ -13,6 +13,20 @@ logger = get_logger(__name__)
 class ConversationRepository:
     """会话数据访问类"""
     
+    def _parse_metadata(self, metadata_value: Any) -> Dict[str, Any]:
+        """解析metadata字段"""
+        if metadata_value is None:
+            return {}
+        if isinstance(metadata_value, dict):
+            return metadata_value
+        if isinstance(metadata_value, str):
+            try:
+                return json.loads(metadata_value)
+            except (json.JSONDecodeError, TypeError):
+                logger.warning("Failed to parse metadata JSON", metadata=metadata_value)
+                return {}
+        return {}
+    
     async def create(self, conversation: Conversation) -> Conversation:
         """创建新会话"""
         try:
@@ -63,7 +77,7 @@ class ConversationRepository:
                     updated_at=row["updated_at"],
                     is_active=row["is_active"],
                     message_count=row["message_count"] or 0,
-                    metadata=row["metadata"] or {}
+                    metadata=self._parse_metadata(row["metadata"])  # 修复这里
                 )
             
             return None
@@ -100,7 +114,7 @@ class ConversationRepository:
                     updated_at=row["updated_at"],
                     is_active=row["is_active"],
                     message_count=row["message_count"] or 0,
-                    metadata=row["metadata"] or {}
+                    metadata=self._parse_metadata(row["metadata"])  # 修复这里
                 ))
             
             return conversations

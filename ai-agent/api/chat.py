@@ -35,12 +35,26 @@ async def chat(request: ChatRequest, req: Request) -> ChatResponse:
             )
             conversation_id = conversation.id
         else:
-            # 添加用户消息到现有会话
-            await conversation_service.add_message(CreateMessageDTO(
-                conversation_id=conversation_id,
-                role=MessageRole.USER,
-                content=request.message
-            ))
+            # 检查会话是否存在，如果不存在则创建
+            existing_conversation = await conversation_service.get_conversation(conversation_id)
+            if not existing_conversation:
+                logger.info("Conversation not found, creating new one", conversation_id=conversation_id)
+                conversation_dto = CreateConversationDTO(
+                    title=None,
+                    initial_message=request.message
+                )
+                conversation = await conversation_service.create_conversation(
+                    dto=conversation_dto,
+                    user_id=request.user_id
+                )
+                conversation_id = conversation.id
+            else:
+                # 添加用户消息到现有会话
+                await conversation_service.add_message(CreateMessageDTO(
+                    conversation_id=conversation_id,
+                    role=MessageRole.USER,
+                    content=request.message
+                ))
         
         # 调用agent处理查询
         result = await agent.process_query(

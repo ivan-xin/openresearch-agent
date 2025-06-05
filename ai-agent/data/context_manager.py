@@ -16,6 +16,9 @@ logger = get_logger(__name__)
 class ContextManager:
     """上下文管理器"""
     
+    # 添加默认的最大会话长度
+    DEFAULT_MAX_CONVERSATION_LENGTH = 100
+    
     async def initialize(self):
         """初始化上下文管理器"""
         try:
@@ -39,10 +42,11 @@ class ContextManager:
             if not conversation:
                 return None
             
-            # 获取会话消息
+            # 获取会话消息 - 使用默认值或从settings获取
+            max_length = getattr(settings, 'max_conversation_length', self.DEFAULT_MAX_CONVERSATION_LENGTH)
             messages = await message_repo.get_by_conversation_id(
                 conversation_id, 
-                limit=settings.max_conversation_length
+                limit=max_length
             )
             
             # 将消息添加到会话对象（这里需要扩展Conversation模型）
@@ -57,6 +61,13 @@ class ContextManager:
     async def create_conversation(self, user_id: str, conversation_id: Optional[str] = None) -> Conversation:
         """创建新会话"""
         try:
+            # 如果提供了conversation_id，先检查是否已存在
+            if conversation_id:
+                existing = await conversation_repo.get_by_id(conversation_id)
+                if existing:
+                    logger.warning("Conversation already exists", conversation_id=conversation_id)
+                    return existing
+            
             conversation = Conversation(
                 id=conversation_id or str(uuid.uuid4()),
                 user_id=user_id
