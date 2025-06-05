@@ -69,12 +69,17 @@ class DatabaseManager:
         async with self.get_connection() as conn:
             await conn.execute(script)
     
-    async def create_tables(self):
-        """创建数据表"""
-        create_tables_sql = """
-        -- 创建会话表
+    async def _enable_uuid_extension(self):
+        """启用UUID扩展"""
+        async with self.get_connection() as conn:
+            await conn.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
+            logger.debug("UUID extension enabled")
+
+    async def _create_conversations_table(self):
+        """创建会话表"""
+        create_conversations_sql = """
         CREATE TABLE IF NOT EXISTS conversations (
-            id UUID PRIMARY KEY,
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
             user_id VARCHAR(255) NOT NULL,
             title VARCHAR(500),
             context JSONB DEFAULT '{}',
@@ -82,25 +87,48 @@ class DatabaseManager:
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             is_active BOOLEAN DEFAULT TRUE
         );
-        
-        -- 创建消息表
+        """
+        async with self.get_connection() as conn:
+            await conn.execute(create_conversations_sql)
+            logger.debug("Conversations table created")
+    
+    async def _create_messages_table(self):
+        """创建消息表"""
+        create_messages_sql = """
         CREATE TABLE IF NOT EXISTS messages (
-            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
             conversation_id UUID NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
             role VARCHAR(20) NOT NULL CHECK (role IN ('user', 'assistant', 'system')),
             content TEXT NOT NULL,
             metadata JSONB DEFAULT '{}',
-            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            INDEX idx_messages_conversation_id (conversation_id),
-            INDEX idx_messages_created_at (created_at)
+            created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
+        """
         
-        -- 创建索引
-        CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);
-        CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at);
-        CREATE INDEX IF NOT EXISTS idx_conversations_active ON conversations(is_active);
+        async with self.get_connection() as conn:
+            await conn.execute(create_messages_sql)
+            logger.debug("Messages table created")
+    
+    async def _create_indexes(self):
+        """创建索引"""
+        indexes = [
+            "CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);",
+            "CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at);",
+            "CREATE INDEX IF NOT EXISTS idx_conversations_active ON conversations(is_active);",
+            "CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON messages(conversation_id);",
+            "CREATE INDEX IF NOT EXISTS idx_messages_created_at ON messages(created_at);",
+            "CREATE INDEX IF NOT EXISTS idx_messages_role ON messages(role);"
+        ]
         
-        -- 创建更新时间触发器
+        async with self.get_connection() as conn:
+            for index_sql in indexes:
+                await conn.execute(index_sql)
+                logger.debug(f"Index created: {index_sql}")
+
+    async def _create_triggers(self):
+        """创建触发器"""
+        # 创建更新时间触发器函数
+        trigger_function_sql = """
         CREATE OR REPLACE FUNCTION update_updated_at_column()
         RETURNS TRIGGER AS $$
         BEGIN
@@ -108,7 +136,10 @@ class DatabaseManager:
             RETURN NEW;
         END;
         $$ language 'plpgsql';
+        """
         
+        # 创建触发器
+        trigger_sql = """
         DROP TRIGGER IF EXISTS update_conversations_updated_at ON conversations;
         CREATE TRIGGER update_conversations_updated_at
             BEFORE UPDATE ON conversations
@@ -116,8 +147,46 @@ class DatabaseManager:
             EXECUTE FUNCTION update_updated_at_column();
         """
         
-        await self.execute_script(create_tables_sql)
-        logger.info("Database tables created successfully")
+        async with self.get_connection() as conn:
+            await conn.execute(trigger_function_sql)
+            await conn.execute(trigger_sql)
+            logger.debug("Triggers created")
+
+    async def drop_tables(self):
+        """删除所有表（用于测试或重置）"""
+        drop_sql = """
+        DROP TABLE IF EXISTS messages CASCADE;
+        DROP TABLE IF EXISTS conversations CASCADE;
+        DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE;
+        """
+        
+        async with self.get_connection() as conn:
+            await conn.execute(drop_sql)
+            logger.info("Database tables dropped")
+
+    async def create_tables(self):
+        """创建数据表"""
+        try:
+            logger.info("Creating database tables...")
+            
+            # 1. 启用UUID扩展
+            await self._enable_uuid_extension()
+            
+            # 2. 创建表
+            await self._create_conversations_table()
+            await self._create_messages_table()
+            
+            # 3. 创建索引
+            await self._create_indexes()
+            
+            # 4. 创建触发器
+            await self._create_triggers()
+            
+            logger.info("Database tables created successfully")
+            
+        except Exception as e:
+            logger.error("Failed to create database tables", error=str(e))
+            raise
 
 # 全局数据库管理器实例
 db_manager = DatabaseManager()

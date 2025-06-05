@@ -24,7 +24,7 @@ api_router.include_router(
 
 api_router.include_router(
     chat.router,
-    prefix="/chat", 
+    # prefix="/chat", 
     tags=["chat"],
     responses={
         200: {"description": "Success"},

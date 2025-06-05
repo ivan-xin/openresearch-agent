@@ -55,8 +55,8 @@ class MessageRepository:
             messages = []
             for row in rows:
                 messages.append(Message(
-                    id=row["id"],
-                    conversation_id=row["conversation_id"],
+                    id=str(row["id"]),  # 确保UUID转换为字符串
+                    conversation_id=str(row["conversation_id"]),  # 确保UUID转换为字符串
                     role=row["role"],
                     content=row["content"],
                     metadata=row["metadata"] or {},
@@ -81,7 +81,8 @@ class MessageRepository:
                     conversation_id
                 )
             
-            deleted_count = int(result.split()[-1])
+            # 解析删除的行数
+            deleted_count = int(result.split()[-1]) if result.split() else 0
             logger.info("Messages deleted", conversation_id=conversation_id, count=deleted_count)
             
             return deleted_count
@@ -90,4 +91,5 @@ class MessageRepository:
             logger.error("Failed to delete messages", conversation_id=conversation_id, error=str(e))
             raise
 
+# 全局消息仓库实例
 message_repo = MessageRepository()

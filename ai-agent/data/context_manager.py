@@ -1,6 +1,7 @@
 """
 简化的上下文管理器 - 基于PostgreSQL
 """
+import uuid
 from typing import Optional, List
 from data.models.conversation import Conversation
 from data.models.message import Message
@@ -202,3 +203,4 @@ class ContextManager:
         except Exception as e:
             logger.error("Error during context manager cleanup", error=str(e))
 
+context_manager = ContextManager()

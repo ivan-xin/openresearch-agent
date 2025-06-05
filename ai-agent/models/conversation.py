@@ -39,7 +39,10 @@ class Message(BaseModel):
 class Conversation(BaseModel):
     """会话实体模型"""
     id: str = Field(..., description="会话ID")
+    user_id: str = Field(..., description="用户ID")
     title: Optional[str] = Field(None, description="会话标题")
+    context: Optional[str] = Field(None, description="会话上下文")
+    is_active: bool = Field(default=True, description="会话是否激活")  # 添加缺失的is_active字段
     created_at: datetime = Field(default_factory=datetime.now, description="创建时间")
     updated_at: datetime = Field(default_factory=datetime.now, description="更新时间")
     message_count: int = Field(default=0, description="消息总数")
@@ -49,7 +52,10 @@ class Conversation(BaseModel):
         "json_schema_extra": {
             "example": {
                 "id": "conv_123456",
+                "user_id": "user_789",
                 "title": "Transformer架构研究",
+                "context": "用户正在研究深度学习相关内容",
+                "is_active": True,
                 "created_at": "2024-01-15T10:00:00Z",
                 "updated_at": "2024-01-15T10:30:00Z",
                 "message_count": 6,
@@ -68,7 +74,10 @@ class ConversationWithMessages(BaseModel):
             "example": {
                 "conversation": {
                     "id": "conv_123456",
+                    "user_id": "user_789",
                     "title": "Transformer架构研究",
+                    "context": "用户正在研究深度学习相关内容",
+                    "is_active": True,
                     "created_at": "2024-01-15T10:00:00Z",
                     "updated_at": "2024-01-15T10:30:00Z",
                     "message_count": 2,
@@ -83,12 +92,14 @@ class ConversationWithMessages(BaseModel):
 class CreateConversationDTO(BaseModel):
     """创建会话DTO"""
     title: Optional[str] = Field(None, description="会话标题", max_length=200)
+    context: Optional[str] = Field(None, description="会话上下文", max_length=1000)
     initial_message: Optional[str] = Field(None, description="初始消息", max_length=2000)
     
     model_config = {
         "json_schema_extra": {
             "example": {
                 "title": "深度学习论文研究",
+                "context": "用户想要了解最新的深度学习研究进展",
                 "initial_message": "我想了解最新的深度学习论文"
             }
         }

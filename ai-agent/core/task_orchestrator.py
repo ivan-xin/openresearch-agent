@@ -50,12 +50,10 @@ class TaskOrchestrator:
             IntentType.GET_PAPER_DETAILS: ["get_paper_details"],
             IntentType.SEARCH_AUTHORS: ["search_authors"],
             IntentType.GET_AUTHOR_DETAILS: ["get_author_details"],
-            IntentType.CITATION_ANALYSIS: ["get_citation_network"],
-            IntentType.COLLABORATION_ANALYSIS: ["get_collaboration_network"],
-            IntentType.TREND_ANALYSIS: ["get_research_trends"],
+            IntentType.CITATION_NETWORK: ["get_citation_network"],  # 修改这里
+            IntentType.COLLABORATION_NETWORK: ["get_collaboration_network"],  # 修改这里
+            IntentType.RESEARCH_TRENDS: ["get_research_trends"],  # 修改这里
             IntentType.RESEARCH_LANDSCAPE: ["analyze_research_landscape"],
-            IntentType.PAPER_REVIEW: ["search_papers", "get_paper_details"],
-            IntentType.PAPER_GENERATION: ["get_research_trends", "search_papers"]
         }
     
     def _create_tasks_for_intent(self, intent) -> List[Task]:
@@ -63,23 +61,23 @@ class TaskOrchestrator:
         tasks = []
         
         # 特殊处理复合意图
-        if intent.type == IntentType.PAPER_REVIEW:
-            tasks = self._create_paper_review_tasks(intent)
-        elif intent.type == IntentType.PAPER_GENERATION:
-            tasks = self._create_paper_generation_tasks(intent)
-        else:
+        # if intent.type == IntentType.PAPER_REVIEW:
+        #     tasks = self._create_paper_review_tasks(intent)
+        # elif intent.type == IntentType.PAPER_GENERATION:
+        #     tasks = self._create_paper_generation_tasks(intent)
+        # else:
             # 简单意图：直接映射到工具
-            tools = self.intent_to_tools.get(intent.type, [])
-            for tool_name in tools:
-                task = Task(
-                    id=str(uuid.uuid4()),
-                    type=TaskType.MCP_TOOL_CALL,
-                    name=f"Call {tool_name}",
-                    parameters=self._prepare_tool_parameters(tool_name, intent.parameters),
-                    dependencies=[],  # 简单任务无依赖
-                    can_parallel=True  # 简单任务可并行
-                )
-                tasks.append(task)
+        tools = self.intent_to_tools.get(intent.type, [])
+        for tool_name in tools:
+            task = Task(
+                id=str(uuid.uuid4()),
+                type=TaskType.MCP_TOOL_CALL,
+                name=f"Call {tool_name}",
+                parameters=self._prepare_tool_parameters(tool_name, intent.parameters),
+                dependencies=[],  # 简单任务无依赖
+                can_parallel=True  # 简单任务可并行
+            )
+            tasks.append(task)
         
         return tasks
     

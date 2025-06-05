@@ -29,7 +29,10 @@ async def chat(request: ChatRequest, req: Request) -> ChatResponse:
                 title=None,  # 会根据第一条消息自动生成
                 initial_message=request.message
             )
-            conversation = await conversation_service.create_conversation(conversation_dto)
+            conversation = await conversation_service.create_conversation(
+                dto=conversation_dto,
+                user_id=request.user_id
+            )
             conversation_id = conversation.id
         else:
             # 添加用户消息到现有会话

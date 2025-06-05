@@ -53,7 +53,7 @@ class ConversationRepository:
             
             if row:
                 return Conversation(
-                    id=row["id"],
+                    id=str(row["id"]),  # 确保UUID转换为字符串
                     user_id=row["user_id"],
                     title=row["title"],
                     context=row["context"] or {},
@@ -87,7 +87,7 @@ class ConversationRepository:
             conversations = []
             for row in rows:
                 conversations.append(Conversation(
-                    id=row["id"],
+                    id=str(row["id"]),  # 确保UUID转换为字符串
                     user_id=row["user_id"],
                     title=row["title"],
                     context=row["context"] or {},
@@ -108,7 +108,7 @@ class ConversationRepository:
             conversation.updated_at = datetime.now()
             
             async with db_manager.get_connection() as conn:
-                await conn.execute(
+                result = await conn.execute(
                     """
                     UPDATE conversations
                     SET title = $2, context = $3, updated_at = $4
@@ -140,7 +140,9 @@ class ConversationRepository:
                     conversation_id
                 )
             
-            success = result.split()[-1] == "1"  # 检查是否更新了一行
+            # 检查是否更新了记录
+            rows_affected = int(result.split()[-1]) if result.split() else 0
+            success = rows_affected > 0
             
             if success:
                 logger.info("Conversation deleted", conversation_id=conversation_id)
@@ -166,12 +168,15 @@ class ConversationRepository:
                     cutoff_date
                 )
             
-            cleaned_count = int(result.split()[-1])
-            logger.info("Old conversations cleaned up", count=cleaned_count, days=days)
+            # 解析更新的行数
+            rows_affected = int(result.split()[-1]) if result.split() else 0
+            logger.info("Old conversations cleaned up", count=rows_affected, days=days)
             
-            return cleaned_count
+            return rows_affected
             
         except Exception as e:
             logger.error("Failed to cleanup old conversations", error=str(e))
             raise
+
+# 全局会话仓库实例
 conversation_repo = ConversationRepository()

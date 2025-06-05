@@ -13,7 +13,7 @@ from models.conversation import (
 from models.context import ConversationContext
 from data.repositories.conversation_repository import conversation_repo
 from data.repositories.message_repository import message_repo
-
+from utils.id_generator import generate_conversation_id, generate_message_id
 logger = structlog.get_logger()
 
 class ConversationService:
@@ -27,13 +27,15 @@ class ConversationService:
         """创建新会话"""
         try:
             # 生成会话ID
-            conversation_id = f"conv_{uuid.uuid4().hex[:12]}"
+            conversation_id = generate_conversation_id()
             
             # 创建会话对象
             conversation = Conversation(
                 id=conversation_id,
                 user_id=user_id,
                 title=dto.title or "新的对话",
+                context=getattr(dto, 'context', None),
+                is_active=True,
                 created_at=datetime.now(),
                 updated_at=datetime.now(),
                 message_count=0,
@@ -123,7 +125,7 @@ class ConversationService:
                 raise ValueError(f"Conversation {dto.conversation_id} not found")
             
             # 生成消息ID
-            message_id = f"msg_{uuid.uuid4().hex[:12]}"
+            message_id = generate_message_id()
             
             # 创建消息对象
             message = Message(

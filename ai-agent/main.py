@@ -94,6 +94,15 @@ def create_app() -> FastAPI:
     # 注册API路由 - 现在只需要一行！
     app.include_router(api_router, prefix="/api/v1")
     
+    # 调试：打印所有路由
+    if settings.debug:
+        logger.info("=== Registered Routes ===")
+        for route in app.routes:
+            if hasattr(route, 'methods') and hasattr(route, 'path'):
+                methods = list(route.methods)
+                logger.info(f"  {methods} -> {route.path}")
+        logger.info("========================")
+
     # 添加根路径处理
     @app.get("/", tags=["root"])
     async def root():

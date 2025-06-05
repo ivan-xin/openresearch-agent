@@ -19,6 +19,29 @@ class LLMService:
         self.session: Optional[aiohttp.ClientSession] = None
         self._validate_config()
     
+    async def initialize(self):
+        """初始化LLM服务"""
+        try:
+            logger.info("Initializing LLM service")
+            
+            # 验证配置
+            self._validate_config()
+            
+            # 预创建HTTP会话
+            await self._get_session()
+            
+            # 可选：执行健康检查
+            health_status = await self.health_check()
+            if health_status["status"] != "healthy":
+                raise Exception(f"LLM service health check failed: {health_status.get('error')}")
+            
+            logger.info("LLM service initialized successfully")
+        
+        except Exception as e:
+            logger.error("Failed to initialize LLM service", error=str(e))
+            raise
+
+
     def _validate_config(self):
         """验证配置"""
         try:
