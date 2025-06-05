@@ -27,6 +27,9 @@ class Settings(BaseSettings):
     cache_type: str = Field(default="memory", env="CACHE_TYPE")
     cache_ttl: int = Field(default=3600, env="CACHE_TTL")
     
+    # 会话配置
+    max_conversation_length: int = Field(default=100, env="MAX_CONVERSATION_LENGTH")
+    
     # MCP服务器配置
     mcp_server_host: str = Field(default="localhost", env="MCP_SERVER_HOST")
     mcp_server_port: int = Field(default=8000, env="MCP_SERVER_PORT")

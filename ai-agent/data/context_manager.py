@@ -16,9 +16,6 @@ logger = get_logger(__name__)
 class ContextManager:
     """上下文管理器"""
     
-    # 添加默认的最大会话长度
-    DEFAULT_MAX_CONVERSATION_LENGTH = 100
-    
     async def initialize(self):
         """初始化上下文管理器"""
         try:
@@ -42,11 +39,10 @@ class ContextManager:
             if not conversation:
                 return None
             
-            # 获取会话消息 - 使用默认值或从settings获取
-            max_length = getattr(settings, 'max_conversation_length', self.DEFAULT_MAX_CONVERSATION_LENGTH)
+            # 获取会话消息 - 直接使用settings中的配置
             messages = await message_repo.get_by_conversation_id(
                 conversation_id, 
-                limit=max_length
+                limit=settings.max_conversation_length
             )
             
             # 将消息添加到会话对象（这里需要扩展Conversation模型）
