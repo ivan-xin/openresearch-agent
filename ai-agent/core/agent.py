@@ -13,7 +13,7 @@ from data.models.conversation import Conversation
 from models.intent import IntentAnalysisResult
 from models.task import TaskPlan, Task, TaskType
 from services.llm_service import LLMService
-from services.mcp_client import MCPClient
+from services import MCPClient
 from data.context_manager import ContextManager
 from .intent_analyzer import IntentAnalyzer
 from .task_orchestrator import TaskOrchestrator
