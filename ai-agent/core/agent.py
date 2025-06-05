@@ -64,12 +64,27 @@ class AcademicAgent:
             # 获取最近的意图类型
             recent_intents = []
             for message in conversation.messages[-5:]:  # 最近5条消息
-                if message.role == "assistant" and message.metadata.get("intent_type"):
-                    recent_intents.append(message.metadata["intent_type"])
+                if hasattr(message, 'role') and message.role == "assistant" and hasattr(message, 'metadata'):
+                    # 确保 metadata 是字典类型
+                    metadata = message.metadata
+                    if isinstance(metadata, str):
+                        try:
+                            import json
+                            metadata = json.loads(metadata)
+                        except (json.JSONDecodeError, TypeError):
+                            metadata = {}
+                    elif not isinstance(metadata, dict):
+                        metadata = {}
+                    
+                    # 现在安全地使用 get 方法
+                    if metadata.get("intent_type"):
+                        recent_intents.append(metadata["intent_type"])
             
             context["recent_intents"] = recent_intents
+            context["conversation_length"] = len(conversation.messages)
         
         return context
+
     
     async def _extract_context_for_response(self, conversation: Conversation) -> Dict[str, Any]:
         """提取用于响应生成的上下文"""
@@ -78,9 +93,15 @@ class AcademicAgent:
         if hasattr(conversation, 'messages') and conversation.messages:
             context["conversation_length"] = len(conversation.messages)
             context["recent_topics"] = []  # 可以添加主题提取逻辑
+            
+            # 提取最近的查询类型
+            recent_queries = []
+            for message in conversation.messages[-10:]:
+                if hasattr(message, 'role') and message.role == "user":
+                    recent_queries.append(message.content[:50])  # 前50个字符
+            context["recent_queries"] = recent_queries
         
         return context
-    
 
     async def _execute_task_plan(self, task_plan: TaskPlan, query_id: str) -> Dict[str, Any]:
         """执行任务计划 - 支持依赖管理和并行执行"""
@@ -134,8 +155,13 @@ class AcademicAgent:
                     for task in parallel_tasks:
                         if task.id in parallel_results:
                             result = parallel_results[task.id]
-                            if isinstance(result, dict) and "error" in result:
+                            # 修复：确保 result 是字典类型
+                            if isinstance(result, dict) and result.get("error"):
                                 task.mark_failed(result["error"])
+                                failed_task_ids.add(task.id)
+                            elif isinstance(result, str) and "error" in result.lower():
+                                # 如果结果是错误字符串
+                                task.mark_failed(result)
                                 failed_task_ids.add(task.id)
                             else:
                                 task.mark_completed()
@@ -185,6 +211,7 @@ class AcademicAgent:
             logger.error("Task plan execution failed", query_id=query_id, error=str(e))
             return {"error": str(e)}
 
+
     async def _execute_parallel_tasks(self, tasks: List[Task], query_id: str) -> Dict[str, Any]:
         """并行执行任务组"""
         logger.info("Executing parallel tasks", 
@@ -220,39 +247,59 @@ class AcademicAgent:
 
     async def _execute_single_task(self, task: Task, parameters: Dict[str, Any]) -> Any:
         """执行单个任务"""
-        if task.type == TaskType.MCP_TOOL_CALL:
-            # 从参数中提取工具名和参数
-            tool_name = parameters.get("tool_name")
-            arguments = parameters.get("arguments", {})
+        try:
+            if task.type == TaskType.MCP_TOOL_CALL:
+                # 从参数中提取工具名和参数
+                tool_name = parameters.get("tool_name")
+                arguments = parameters.get("arguments", {})
+                
+                if not tool_name:
+                    raise ValueError(f"Missing tool_name in task parameters: {parameters}")
+                
+                result = await self.mcp_client.call_tool(tool_name, arguments)
+                # 确保返回字典格式
+                if isinstance(result, str):
+                    return {"content": result, "type": "text"}
+                elif isinstance(result, dict):
+                    return result
+                else:
+                    return {"content": str(result), "type": "unknown"}
             
-            if not tool_name:
-                raise ValueError(f"Missing tool_name in task parameters: {parameters}")
+            elif task.type == TaskType.LLM_GENERATION:
+                # LLM生成任务
+                prompt = parameters.get("prompt")
+                model_params = parameters.get("model_params", {})
+                
+                if not prompt:
+                    raise ValueError(f"Missing prompt in LLM task parameters: {parameters}")
+                
+                result = await self.llm_service.generate_text(prompt, **model_params)
+                # 确保返回字典格式
+                if isinstance(result, str):
+                    return {"content": result, "type": "text"}
+                elif isinstance(result, dict):
+                    return result
+                else:
+                    return {"content": str(result), "type": "unknown"}
             
-            return await self.mcp_client.call_tool(tool_name, arguments)
-        
-        elif task.type == TaskType.LLM_GENERATION:
-            # LLM生成任务
-            prompt = parameters.get("prompt")
-            model_params = parameters.get("model_params", {})
+            elif task.type == TaskType.RESPONSE_GENERATION:
+                # 响应生成任务
+                content = parameters.get("content")
+                format_type = parameters.get("format_type", "text")
+                
+                if not content:
+                    raise ValueError(f"Missing content in response task parameters: {parameters}")
+                
+                # 这里可以根据format_type进行不同的格式化处理
+                return {"formatted_content": content, "format": format_type}
             
-            if not prompt:
-                raise ValueError(f"Missing prompt in LLM task parameters: {parameters}")
-            
-            return await self.llm_service.generate_text(prompt, **model_params)
-        
-        elif task.type == TaskType.RESPONSE_GENERATION:
-            # 响应生成任务
-            content = parameters.get("content")
-            format_type = parameters.get("format_type", "text")
-            
-            if not content:
-                raise ValueError(f"Missing content in response task parameters: {parameters}")
-            
-            # 这里可以根据format_type进行不同的格式化处理
-            return {"formatted_content": content, "format": format_type}
-        
-        else:
-            raise ValueError(f"Unknown task type: {task.type}")
+            else:
+                raise ValueError(f"Unknown task type: {task.type}")
+                
+        except Exception as e:
+            logger.error("Task execution failed", task_id=task.id, error=str(e))
+            return {"error": str(e)}
+
 
     def _update_task_parameters(self, task: Task, previous_results: Dict[str, Any]) -> Dict[str, Any]:
         """根据前面任务的结果更新当前任务的参数"""
@@ -268,25 +315,35 @@ class AcademicAgent:
                 if dep_task_id in previous_results:
                     dep_result = previous_results[dep_task_id]
                     
+                    # 确保 dep_result 是字典类型
+                    if not isinstance(dep_result, dict):
+                        logger.warning("Dependency result is not a dict", 
+                                    task_id=task.id, 
+                                    dep_task_id=dep_task_id,
+                                    result_type=type(dep_result).__name__)
+                        continue
+                    
                     # 假设搜索结果包含论文列表
-                    if isinstance(dep_result, dict) and "papers" in dep_result:
+                    if "papers" in dep_result:
                         papers = dep_result["papers"]
                         if papers and len(papers) > 0:
                             # 取第一篇论文的ID
-                            paper_id = papers[0].get("id") or papers[0].get("paper_id")
-                            if paper_id:
-                                # 更新参数
-                                if "arguments" not in parameters:
-                                    parameters["arguments"] = {}
-                                parameters["arguments"]["paper_id"] = paper_id
-                                logger.info("Updated task parameters with paper_id", 
-                                        task_id=task.id, 
-                                        paper_id=paper_id)
-                                break
+                            first_paper = papers[0]
+                            if isinstance(first_paper, dict):
+                                paper_id = first_paper.get("id") or first_paper.get("paper_id")
+                                if paper_id:
+                                    # 更新参数
+                                    if "arguments" not in parameters:
+                                        parameters["arguments"] = {}
+                                    parameters["arguments"]["paper_id"] = paper_id
+                                    logger.info("Updated task parameters with paper_id", 
+                                            task_id=task.id, 
+                                            paper_id=paper_id)
+                                    break
         
         return parameters
 
-    # 修改主要的处理流程方法
+
     async def _execute_processing_pipeline(self,
                                         query: str,
                                         conversation_id: Optional[str],
@@ -294,106 +351,202 @@ class AcademicAgent:
                                         query_id: str) -> Dict[str, Any]:
         """执行完整的处理流水线"""
         
-        # 1. 获取或创建对话上下文
-        conversation = await self._get_or_create_conversation(
-            conversation_id, user_id
-        )
-        
-        # 2. 添加用户消息到对话
-        conversation.add_message("user", query, {"query_id": query_id})
-        
-        # 3. 意图分析
-        logger.info("Starting intent analysis", query_id=query_id)
-        intent_result = await self.intent_analyzer.analyze(
-            query, 
-            await self._extract_context_for_intent(conversation)
-        )
-        
-        # 4. 检查是否需要澄清
-        if intent_result.needs_clarification:
-            clarification_response = self._create_clarification_response(intent_result)
-            conversation.add_message("assistant", clarification_response["content"])
+        try:
+            # 1. 获取或创建对话上下文
+            conversation = await self._get_or_create_conversation(
+                conversation_id, user_id
+            )
+            
+            # 2. 通过 context_manager 添加用户消息
+            await self.context_manager.add_message(
+                conversation.id, 
+                "user", 
+                query, 
+                {"query_id": query_id}
+            )
+            
+            # 3. 意图分析
+            logger.info("Starting intent analysis", query_id=query_id)
+            intent_result = await self.intent_analyzer.analyze(
+                query, 
+                await self._extract_context_for_intent(conversation)
+            )
+            
+            # 4. 检查是否需要澄清
+            if intent_result.needs_clarification:
+                clarification_response = self._create_clarification_response(intent_result)
+                await self.context_manager.add_message(
+                    conversation.id,
+                    "assistant", 
+                    clarification_response["content"]
+                )
+                await self.context_manager.update_conversation(conversation)
+                return clarification_response
+            
+            # 5. 任务编排
+            logger.info("Creating task plan", query_id=query_id)
+            task_plan = await self.task_orchestrator.create_plan(intent_result)
+            
+            # 6. 执行任务计划
+            logger.info("Executing task plan", 
+                    query_id=query_id,
+                    task_stats=task_plan.get_completion_stats())
+            execution_results = await self._execute_task_plan(task_plan, query_id)
+            
+            # 7. 整合响应
+            logger.info("Integrating response", query_id=query_id)
+            final_response = await self.response_integrator.integrate(
+                query,
+                intent_result,
+                execution_results,
+                await self._extract_context_for_response(conversation)
+            )
+            
+            # 8. 确保 final_response 是字典类型
+            if not isinstance(final_response, dict):
+                logger.warning("Response integrator returned non-dict result", 
+                            result_type=type(final_response).__name__)
+                final_response = {"content": str(final_response)}
+            
+            # 确保有 content 字段
+            if "content" not in final_response:
+                final_response["content"] = "抱歉，我无法生成合适的回复。"
+            
+            # 9. 通过 context_manager 添加助手回复
+            await self.context_manager.add_message(
+                conversation.id,
+                "assistant", 
+                final_response["content"], 
+                {
+                    "query_id": query_id,
+                    "intent_type": intent_result.primary_intent.type.value,
+                    "confidence": intent_result.primary_intent.confidence,
+                    "task_stats": task_plan.get_completion_stats()
+                }
+            )
+            
+            # 10. 保存对话
             await self.context_manager.update_conversation(conversation)
-            return clarification_response
+            
+            # 11. 添加查询元数据
+            final_response["query_id"] = query_id
+            final_response["conversation_id"] = conversation.id
+            final_response["task_execution_stats"] = task_plan.get_completion_stats()
+            final_response["processing_time"] = (
+                datetime.now() - conversation.created_at
+            ).total_seconds()
+            
+            logger.info("Query processing completed successfully", 
+                    query_id=query_id,
+                    processing_time=final_response["processing_time"],
+                    task_stats=final_response["task_execution_stats"])
+            
+            return final_response
+            
+        except Exception as e:
+            logger.error("Processing pipeline failed", query_id=query_id, error=str(e))
+            return self._create_error_response(str(e), query_id)
+
+
+    def _create_clarification_response(self, intent_result: IntentAnalysisResult) -> Dict[str, Any]:
+        """创建澄清响应"""
+        # 根据意图类型生成不同的澄清问题
+        intent_type = intent_result.primary_intent.type.value
         
-        # 5. 任务编排
-        logger.info("Creating task plan", query_id=query_id)
-        task_plan = await self.task_orchestrator.create_plan(intent_result)
+        clarification_messages = {
+            "search_papers": "您想搜索什么主题的论文？请提供更具体的关键词。",
+            "search_authors": "您想查找哪位作者的信息？请提供作者姓名。",
+            "unknown": "请提供更多信息，以便我更好地理解您的需求。"
+        }
         
-        # 6. 执行任务计划
-        logger.info("Executing task plan", 
-                query_id=query_id,
-                task_stats=task_plan.get_completion_stats())
-        execution_results = await self._execute_task_plan(task_plan, query_id)
+        content = clarification_messages.get(intent_type, clarification_messages["unknown"])
         
-        # 7. 整合响应
-        logger.info("Integrating response", query_id=query_id)
-        final_response = await self.response_integrator.integrate(
-            query,
-            intent_result,
-            execution_results,
-            await self._extract_context_for_response(conversation)
+        return {
+            "content": content,
+            "needs_clarification": True,
+            "metadata": {
+                "intent_type": intent_type,
+                "confidence": intent_result.primary_intent.confidence
+            }
+        }
+
+    def _create_error_response(self, error_message: str, query_id: str) -> Dict[str, Any]:
+        """创建错误响应"""
+        return {
+            "content": f"抱歉，处理您的请求时遇到了问题：{error_message}",
+            "error": True,
+            "query_id": query_id,
+            "metadata": {
+                "error_message": error_message
+            }
+        }
+
+    async def process_query(self, 
+                          query: str, 
+                          conversation_id: Optional[str] = None,
+                          user_id: str = "default_user") -> Dict[str, Any]:
+        """处理用户查询的主要入口方法"""
+        # 生成查询ID用于跟踪
+        query_id = str(uuid.uuid4())
+        
+        try:
+            logger.info("Starting query processing", 
+                       query_id=query_id,
+                       query=query,
+                       conversation_id=conversation_id,
+                       user_id=user_id)
+            
+            # 防止重复处理
+            if conversation_id and conversation_id in self.processing_queries:
+                return {
+                    "content": "正在处理您的上一个请求，请稍候...",
+                    "status": "processing"
+                }
+            
+            if conversation_id:
+                self.processing_queries[conversation_id] = True
+            
+            try:
+                # 执行处理流程
+                result = await self._execute_processing_pipeline(
+                    query, conversation_id, user_id, query_id
+                )
+                
+                return result
+                
+            finally:
+                # 清理处理状态
+                if conversation_id and conversation_id in self.processing_queries:
+                    del self.processing_queries[conversation_id]
+            
+        except Exception as e:
+            logger.error("Query processing failed", 
+                        query_id=query_id,
+                        error=str(e))
+            return self._create_error_response(str(e), query_id)
+    
+    async def _get_or_create_conversation(self,
+                                        conversation_id: Optional[str],
+                                        user_id: str) -> Conversation:
+        """获取或创建对话"""
+        if conversation_id and conversation_id in self.active_conversations:
+            return self.active_conversations[conversation_id]
+        
+        if conversation_id:
+            # 尝试从数据库加载
+            conversation = await self.context_manager.get_conversation(conversation_id)
+            if conversation:
+                self.active_conversations[conversation_id] = conversation
+                return conversation
+        
+        # 创建新对话
+        conversation = await self.context_manager.create_conversation(
+            user_id=user_id,
+            conversation_id=conversation_id
         )
         
-        # 8. 更新对话上下文
-        conversation.add_message("assistant", final_response["content"], {
-            "query_id": query_id,
-            "intent_type": intent_result.primary_intent.type.value,
-            "confidence": intent_result.primary_intent.confidence,
-            "task_stats": task_plan.get_completion_stats()
-        })
-        
-        # 9. 保存对话
-        await self.context_manager.update_conversation(conversation)
-        
-        # 10. 添加查询元数据
-        final_response["query_id"] = query_id
-        final_response["conversation_id"] = conversation.id
-        final_response["task_execution_stats"] = task_plan.get_completion_stats()
-        final_response["processing_time"] = (
-            datetime.now() - conversation.messages[-2].created_at
-        ).total_seconds()
-        
-        logger.info("Query processing completed successfully", 
-                query_id=query_id,
-                processing_time=final_response["processing_time"],
-                task_stats=final_response["task_execution_stats"])
-        
-        return final_response
-
-    # 修改上下文提取方法，使其为异步
-    async def _extract_context_for_intent(self, conversation) -> Dict[str, Any]:
-        """提取用于意图分析的上下文"""
-        context = {}
-        
-        if hasattr(conversation, 'messages') and conversation.messages:
-            # 获取最近的意图类型
-            recent_intents = []
-            for message in conversation.messages[-5:]:  # 最近5条消息
-                if message.role == "assistant" and message.metadata.get("intent_type"):
-                    recent_intents.append(message.metadata["intent_type"])
-            
-            context["recent_intents"] = recent_intents
-            context["conversation_length"] = len(conversation.messages)
-        
-        return context
-
-    async def _extract_context_for_response(self, conversation) -> Dict[str, Any]:
-        """提取用于响应生成的上下文"""
-        context = {}
-        
-        if hasattr(conversation, 'messages') and conversation.messages:
-            context["conversation_length"] = len(conversation.messages)
-            context["recent_topics"] = []  # 可以添加主题提取逻辑
-            
-            # 提取最近的查询类型
-            recent_queries = []
-            for message in conversation.messages[-10:]:
-                if message.role == "user":
-                    recent_queries.append(message.content[:50])  # 前50个字符
-            context["recent_queries"] = recent_queries
-        
-        return context
+        self.active_conversations[conversation.id] = conversation
+        return conversation
 
     # 添加任务计划调试方法
     async def get_task_plan_debug_info(self, query: str, user_id: str = "debug_user") -> Dict[str, Any]:
@@ -537,168 +690,6 @@ class AcademicAgent:
         
         return phases
     
-    def _create_clarification_response(self, intent_result: IntentAnalysisResult) -> Dict[str, Any]:
-        """创建澄清响应"""
-        return {
-            "content": intent_result.clarification_questions[0] if intent_result.clarification_questions else "请提供更多信息",
-            "needs_clarification": True,
-            "metadata": {
-                "intent_type": intent_result.primary_intent.type.value,
-                "confidence": intent_result.primary_intent.confidence
-            }
-        }
-    
-    def _create_error_response(self, error_message: str, query_id: str) -> Dict[str, Any]:
-        """创建错误响应"""
-        return {
-            "content": f"抱歉，处理您的请求时遇到了问题：{error_message}",
-            "error": True,
-            "query_id": query_id,
-            "metadata": {
-                "error_message": error_message
-            }
-        }
-
-    async def process_query(self, 
-                          query: str, 
-                          conversation_id: Optional[str] = None,
-                          user_id: str = "default_user") -> Dict[str, Any]:
-        """处理用户查询的主要入口方法"""
-        # 生成查询ID用于跟踪
-        query_id = str(uuid.uuid4())
-        
-        try:
-            logger.info("Starting query processing", 
-                       query_id=query_id,
-                       query=query,
-                       conversation_id=conversation_id,
-                       user_id=user_id)
-            
-            # 防止重复处理
-            if conversation_id and conversation_id in self.processing_queries:
-                return {
-                    "response": "正在处理您的上一个请求，请稍候...",
-                    "status": "processing"
-                }
-            
-            if conversation_id:
-                self.processing_queries[conversation_id] = True
-            
-            try:
-                # 执行处理流程
-                result = await self._execute_processing_pipeline(
-                    query, conversation_id, user_id, query_id
-                )
-                
-                return result
-                
-            finally:
-                # 清理处理状态
-                if conversation_id and conversation_id in self.processing_queries:
-                    del self.processing_queries[conversation_id]
-            
-        except Exception as e:
-            logger.error("Query processing failed", 
-                        query_id=query_id,
-                        error=str(e))
-            return self._create_error_response(str(e), query_id)
-    
-    async def _execute_processing_pipeline(self,
-                                         query: str,
-                                         conversation_id: Optional[str],
-                                         user_id: str,
-                                         query_id: str) -> Dict[str, Any]:
-        """执行完整的处理流水线"""
-        
-        # 1. 获取或创建对话上下文
-        conversation = await self._get_or_create_conversation(
-            conversation_id, user_id
-        )
-        
-        # 2. 添加用户消息到对话
-        conversation.add_message("user", query, {"query_id": query_id})
-        
-        # 3. 意图分析
-        logger.info("Starting intent analysis", query_id=query_id)
-        intent_result = await self.intent_analyzer.analyze(
-            query, 
-            self._extract_context_for_intent(conversation)
-        )
-        
-        # 4. 检查是否需要澄清
-        if intent_result.needs_clarification:
-            clarification_response = self._create_clarification_response(intent_result)
-            conversation.add_message("assistant", clarification_response["content"])
-            await self.context_manager.update_conversation(conversation)
-            return clarification_response
-        
-        # 5. 任务编排
-        logger.info("Creating task plan", query_id=query_id)
-        task_plan = await self.task_orchestrator.create_plan(intent_result)
-        
-        # 6. 执行任务计划
-        logger.info("Executing task plan", 
-                   query_id=query_id,
-                   task_count=len(task_plan.tasks))
-        execution_results = await self._execute_task_plan(task_plan, query_id)
-        
-        # 7. 整合响应
-        logger.info("Integrating response", query_id=query_id)
-        final_response = await self.response_integrator.integrate(
-            query,
-            intent_result,
-            execution_results,
-            self._extract_context_for_response(conversation)
-        )
-        
-        # 8. 更新对话上下文
-        conversation.add_message("assistant", final_response["content"], {
-            "query_id": query_id,
-            "intent_type": intent_result.primary_intent.type.value,
-            "confidence": intent_result.primary_intent.confidence
-        })
-        
-        # 9. 保存对话
-        await self.context_manager.update_conversation(conversation)
-        
-        # 10. 添加查询元数据
-        final_response["query_id"] = query_id
-        final_response["conversation_id"] = conversation.id
-        final_response["processing_time"] = (
-            datetime.now() - conversation.messages[-2].created_at
-        ).total_seconds()
-        
-        logger.info("Query processing completed successfully", 
-                   query_id=query_id,
-                   processing_time=final_response["processing_time"])
-        
-        return final_response
-    
-    async def _get_or_create_conversation(self,
-                                        conversation_id: Optional[str],
-                                        user_id: str) -> Conversation:
-        """获取或创建对话"""
-        if conversation_id and conversation_id in self.active_conversations:
-            return self.active_conversations[conversation_id]
-        
-        if conversation_id:
-            # 尝试从数据库加载
-            conversation = await self.context_manager.get_conversation(conversation_id)
-            if conversation:
-                self.active_conversations[conversation_id] = conversation
-                return conversation
-        
-        # 创建新对话
-        conversation = await self.context_manager.create_conversation(
-            user_id=user_id,
-            conversation_id=conversation_id
-        )
-        
-        self.active_conversations[conversation.id] = conversation
-        return conversation
-    
-    # ... 其他方法保持不变，但移除所有缓存相关的代码
-    
     async def get_conversation_history(self, conversation_id: str) -> Optional[Dict[str, Any]]:
         """获取对话历史"""
         try:
@@ -712,7 +703,7 @@ class AcademicAgent:
                 "title": conversation.title,
                 "created_at": conversation.created_at.isoformat(),
                 "updated_at": conversation.updated_at.isoformat(),
-                "message_count": len(conversation.messages),
+                "message_count": len(conversation.messages) if hasattr(conversation, 'messages') else 0,
                 "messages": [
                     {
                         "id": msg.id,
@@ -721,7 +712,7 @@ class AcademicAgent:
                         "timestamp": msg.created_at.isoformat(),
                         "metadata": msg.metadata
                     }
-                    for msg in conversation.messages
+                    for msg in (conversation.messages if hasattr(conversation, 'messages') else [])
                 ]
             }
             
@@ -742,8 +733,8 @@ class AcademicAgent:
                     "title": conv.title,
                     "created_at": conv.created_at.isoformat(),
                     "updated_at": conv.updated_at.isoformat(),
-                    "message_count": len(conv.messages),
-                    "last_message": conv.messages[-1].content if conv.messages else None
+                    "message_count": len(conv.messages) if hasattr(conv, 'messages') else 0,
+                    "last_message": conv.messages[-1].content if hasattr(conv, 'messages') and conv.messages else None
                 }
                 for conv in conversations
             ]

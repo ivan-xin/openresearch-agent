@@ -327,10 +327,15 @@ class ResponseIntegrator:
         return "\n\n".join(response_parts)
     
     def _enhance_response(self,
-                         natural_response: str,
-                         structured_response: Dict[str, Any],
-                         intent_result: IntentAnalysisResult) -> Dict[str, Any]:
+                        natural_response: str,
+                        structured_response: Dict[str, Any],
+                        intent_result: IntentAnalysisResult) -> Dict[str, Any]:
         """增强响应，添加元数据和建议"""
+        
+        # 确保 natural_response 是字符串
+        if not isinstance(natural_response, str):
+            natural_response = str(natural_response)
+        
         return {
             "content": natural_response,
             "metadata": {

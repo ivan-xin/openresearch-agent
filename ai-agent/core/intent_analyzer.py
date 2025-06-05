@@ -62,13 +62,11 @@ class IntentAnalyzer:
             # 简单的关键词匹配作为备选方案
             intent_data = self._extract_intent_from_text(analysis_text, original_query)
             
-            # 创建主要意图
+            # 创建主要意图 - 只使用基本参数
             primary_intent = Intent(
                 type=IntentType(intent_data["intent_type"]),
                 confidence=intent_data["confidence"],
-                parameters=intent_data.get("parameters", {}),
-                entities=intent_data.get("entities", []),
-                original_query=original_query
+                parameters=intent_data.get("parameters", {})
             )
             
             # 检查是否需要澄清
@@ -87,7 +85,21 @@ class IntentAnalyzer:
         except Exception as e:
             logger.error("Failed to parse LLM response", error=str(e))
             return self._create_fallback_intent(original_query)
-    
+
+    def _create_fallback_intent(self, query: str) -> IntentAnalysisResult:
+        """创建备选意图结果"""
+        fallback_intent = Intent(
+            type=IntentType.UNKNOWN,
+            confidence=0.1,
+            parameters={}
+        )
+        
+        return IntentAnalysisResult(
+            primary_intent=fallback_intent,
+            needs_clarification=True,
+            clarification_questions=["抱歉，我没有完全理解您的需求。您能更具体地描述一下吗？"]
+        )
+
     def _extract_intent_from_text(self, analysis_text: str, query: str) -> Dict[str, Any]:
         """从文本中提取意图信息"""
         # 关键词映射
@@ -186,19 +198,3 @@ class IntentAnalyzer:
             questions.append("您想查找哪位作者的信息？")
         
         return questions
-    
-    def _create_fallback_intent(self, query: str) -> IntentAnalysisResult:
-        """创建备选意图结果"""
-        fallback_intent = Intent(
-            type=IntentType.UNKNOWN,
-            confidence=0.1,
-            parameters={},
-            entities=[],
-            original_query=query
-        )
-        
-        return IntentAnalysisResult(
-            primary_intent=fallback_intent,
-            needs_clarification=True,
-            clarification_questions=["抱歉，我没有完全理解您的需求。您能更具体地描述一下吗？"]
-        )
