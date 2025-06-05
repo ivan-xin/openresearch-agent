@@ -5,7 +5,7 @@ import json
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from data.database import db_manager
-from data.models.conversation import Conversation
+from data.models.conversation import Conversation  # 使用 data.models.conversation
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
@@ -19,16 +19,18 @@ class ConversationRepository:
             async with db_manager.get_connection() as conn:
                 await conn.execute(
                     """
-                    INSERT INTO conversations (id, user_id, title, context, created_at, updated_at, is_active)
-                    VALUES ($1, $2, $3, $4, $5, $6, $7)
+                    INSERT INTO conversations (id, user_id, title, context, created_at, updated_at, is_active, message_count, metadata)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                     """,
                     conversation.id,
                     conversation.user_id,
                     conversation.title,
-                    json.dumps(conversation.context),
+                    conversation.context,
                     conversation.created_at,
                     conversation.updated_at,
-                    conversation.is_active
+                    conversation.is_active,
+                    conversation.message_count,
+                    json.dumps(conversation.metadata)
                 )
             
             logger.info("Conversation created", conversation_id=conversation.id)
@@ -44,7 +46,7 @@ class ConversationRepository:
             async with db_manager.get_connection() as conn:
                 row = await conn.fetchrow(
                     """
-                    SELECT id, user_id, title, context, created_at, updated_at, is_active
+                    SELECT id, user_id, title, context, created_at, updated_at, is_active, message_count, metadata
                     FROM conversations
                     WHERE id = $1 AND is_active = TRUE
                     """,
@@ -53,13 +55,15 @@ class ConversationRepository:
             
             if row:
                 return Conversation(
-                    id=str(row["id"]),  # 确保UUID转换为字符串
+                    id=str(row["id"]),
                     user_id=row["user_id"],
                     title=row["title"],
-                    context=row["context"] or {},
+                    context=row["context"],
                     created_at=row["created_at"],
                     updated_at=row["updated_at"],
-                    is_active=row["is_active"]
+                    is_active=row["is_active"],
+                    message_count=row["message_count"] or 0,
+                    metadata=row["metadata"] or {}
                 )
             
             return None
@@ -68,32 +72,35 @@ class ConversationRepository:
             logger.error("Failed to get conversation", conversation_id=conversation_id, error=str(e))
             raise
     
-    async def get_by_user_id(self, user_id: str, limit: int = 50) -> List[Conversation]:
+    async def get_by_user_id(self, user_id: str, limit: int = 50, offset: int = 0) -> List[Conversation]:
         """获取用户的会话列表"""
         try:
             async with db_manager.get_connection() as conn:
                 rows = await conn.fetch(
                     """
-                    SELECT id, user_id, title, context, created_at, updated_at, is_active
+                    SELECT id, user_id, title, context, created_at, updated_at, is_active, message_count, metadata
                     FROM conversations
                     WHERE user_id = $1 AND is_active = TRUE
                     ORDER BY updated_at DESC
-                    LIMIT $2
+                    LIMIT $2 OFFSET $3
                     """,
                     user_id,
-                    limit
+                    limit,
+                    offset
                 )
             
             conversations = []
             for row in rows:
                 conversations.append(Conversation(
-                    id=str(row["id"]),  # 确保UUID转换为字符串
+                    id=str(row["id"]),
                     user_id=row["user_id"],
                     title=row["title"],
-                    context=row["context"] or {},
+                    context=row["context"],
                     created_at=row["created_at"],
                     updated_at=row["updated_at"],
-                    is_active=row["is_active"]
+                    is_active=row["is_active"],
+                    message_count=row["message_count"] or 0,
+                    metadata=row["metadata"] or {}
                 ))
             
             return conversations
@@ -111,13 +118,15 @@ class ConversationRepository:
                 result = await conn.execute(
                     """
                     UPDATE conversations
-                    SET title = $2, context = $3, updated_at = $4
+                    SET title = $2, context = $3, updated_at = $4, message_count = $5, metadata = $6
                     WHERE id = $1
                     """,
                     conversation.id,
                     conversation.title,
-                    json.dumps(conversation.context),
-                    conversation.updated_at
+                    conversation.context,
+                    conversation.updated_at,
+                    conversation.message_count,
+                    json.dumps(conversation.metadata)
                 )
             
             logger.debug("Conversation updated", conversation_id=conversation.id)

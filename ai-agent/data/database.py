@@ -82,10 +82,12 @@ class DatabaseManager:
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
             user_id VARCHAR(255) NOT NULL,
             title VARCHAR(500),
-            context JSONB DEFAULT '{}',
+            context TEXT,
+            is_active BOOLEAN DEFAULT TRUE,
+            message_count INTEGER DEFAULT 0,
+            metadata JSONB DEFAULT '{}',
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-            is_active BOOLEAN DEFAULT TRUE
+            updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
         """
         async with self.get_connection() as conn:
@@ -186,6 +188,40 @@ class DatabaseManager:
             
         except Exception as e:
             logger.error("Failed to create database tables", error=str(e))
+            raise
+
+    async def add_missing_columns(self):
+        """添加缺失的列（用于数据库迁移）"""
+        try:
+            async with self.get_connection() as conn:
+                # 检查并添加 message_count 列
+                await conn.execute("""
+                    ALTER TABLE conversations 
+                    ADD COLUMN IF NOT EXISTS message_count INTEGER DEFAULT 0;
+                """)
+                
+                # 检查并添加 is_active 列
+                await conn.execute("""
+                    ALTER TABLE conversations 
+                    ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
+                """)
+                
+                # 检查并添加 context 列
+                await conn.execute("""
+                    ALTER TABLE conversations 
+                    ADD COLUMN IF NOT EXISTS context TEXT;
+                """)
+                
+                # 检查并添加 metadata 列
+                await conn.execute("""
+                    ALTER TABLE conversations 
+                    ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
+                """)
+                
+                logger.info("Missing columns added successfully")
+                
+        except Exception as e:
+            logger.error("Failed to add missing columns", error=str(e))
             raise
 
 # 全局数据库管理器实例

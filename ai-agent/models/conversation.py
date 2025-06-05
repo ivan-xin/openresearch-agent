@@ -18,7 +18,7 @@ class Message(BaseModel):
     conversation_id: str = Field(..., description="所属会话ID")
     role: MessageRole = Field(..., description="消息角色")
     content: str = Field(..., description="消息内容")
-    timestamp: datetime = Field(default_factory=datetime.now, description="消息时间戳")
+    created_at: datetime = Field(default_factory=datetime.now, description="创建时间")
     metadata: Dict[str, Any] = Field(default_factory=dict, description="消息元数据")
     
     model_config = {
@@ -29,7 +29,7 @@ class Message(BaseModel):
                 "conversation_id": "conv_789",
                 "role": "user",
                 "content": "请帮我搜索关于Transformer架构的最新论文",
-                "timestamp": "2024-01-15T10:30:00Z",
+                "created_at": "2024-01-15T10:30:00Z",
                 "metadata": {}
             }
         }
