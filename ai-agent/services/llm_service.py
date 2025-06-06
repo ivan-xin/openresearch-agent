@@ -31,9 +31,9 @@ class LLMService:
             await self._get_session()
             
             # 可选：执行健康检查
-            health_status = await self.health_check()
-            if health_status["status"] != "healthy":
-                raise Exception(f"LLM service health check failed: {health_status.get('error')}")
+            # health_status = await self.health_check()
+            # if health_status["status"] != "healthy":
+            #     raise Exception(f"LLM service health check failed: {health_status.get('error')}")
             
             logger.info("LLM service initialized successfully")
         
