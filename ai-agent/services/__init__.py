@@ -7,11 +7,11 @@ from .conversation_service import conversation_service, ConversationService
 # MCP客户端 - 两种协议版本
 from .mcp_client_http import mcp_client as mcp_client_http, MCPClient as MCPClientHTTP
 from .mcp_client_stdio import mcp_client_stdio, MCPClient as MCPClientStdio
-from .mcp_client_oneshot import mcp_client_oneshot,MCPClient   as MCPClientOneshot
+from .mcp_client_oneshot import mcp_client_oneshot,MCPClient as MCPClientOneshot
 
 # 默认使用 stdio 协议（推荐）
-mcp_client = mcp_client_oneshot
-MCPClient = MCPClientOneshot
+mcp_client = mcp_client_stdio
+MCPClient = MCPClientStdio
 
 __all__ = [
     # LLM服务

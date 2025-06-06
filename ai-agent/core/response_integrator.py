@@ -54,22 +54,52 @@ class ResponseIntegrator:
             return self._create_error_response(str(e))
     
     def _process_execution_results(self, execution_results: Dict[str, Any]) -> Dict[str, Any]:
-        """处理和清理执行结果"""
+        """处理和清理执行结果 - 保留 MCP 结构信息"""
         processed = {}
         
         for task_id, result in execution_results.items():
             if isinstance(result, dict) and not result.get("error"):
-                # 提取有用的数据
                 if "content" in result:
                     content = result["content"]
+                    
                     if isinstance(content, list) and content:
-                        processed[task_id] = content[0].get("text", "") if content[0].get("type") == "text" else content
+                        first_item = content[0]
+                        if isinstance(first_item, dict) and first_item.get("type") == "text":
+                            # 保留 MCP 结构，同时提供便捷访问
+                            processed[task_id] = {
+                                "mcp_format": True,
+                                "content_type": "text",
+                                "text_content": first_item.get("text", ""),
+                                "raw_mcp_content": content,
+                                "full_result": result
+                            }
+                        else:
+                            # 其他类型的 MCP 内容
+                            processed[task_id] = {
+                                "mcp_format": True,
+                                "content_type": first_item.get("type", "unknown"),
+                                "content_data": first_item,
+                                "raw_mcp_content": content,
+                                "full_result": result
+                            }
                     else:
-                        processed[task_id] = content
+                        # content 不是列表或为空
+                        processed[task_id] = {
+                            "mcp_format": True,
+                            "content_type": "invalid",
+                            "content_data": content,
+                            "full_result": result
+                        }
                 else:
-                    processed[task_id] = result
+                    # 没有 content 字段
+                    processed[task_id] = {
+                        "mcp_format": False,
+                        "content_data": result
+                    }
             else:
-                logger.warning("Task result contains error", task_id=task_id, error=result.get("error"))
+                logger.warning("Task result contains error", 
+                            task_id=task_id, 
+                            error=result.get("error") if isinstance(result, dict) else "Invalid result format")
         
         return processed
     
@@ -127,34 +157,119 @@ class ResponseIntegrator:
         return structured_response
     
     def _structure_paper_list_response(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """结构化论文列表响应"""
+        """结构化论文列表响应 - 处理 MCP 格式和 JSON 字符串数据"""
         papers = []
         total_count = 0
+        text_content = ""
+        paper_count = 0
         
         for task_result in data.values():
-            if isinstance(task_result, dict) and "papers" in task_result:
-                papers.extend(task_result["papers"])
-                total_count = task_result.get("total", len(papers))
+            if isinstance(task_result, dict):
+                if task_result.get("mcp_format") and task_result.get("content_type") == "text":
+                    # 从 text_content 中获取 JSON 字符串
+                    text_content = task_result.get("text_content", "")
+                    
+                    if text_content:
+                        try:
+                            # 尝试解析 JSON 字符串
+                            import json
+                            json_data = json.loads(text_content)
+                            
+                            if isinstance(json_data, dict):
+                                # 提取论文数据
+                                papers.extend(json_data.get("papers", []))
+                                total_count = json_data.get("count", len(papers))
+                                paper_count = len(papers)
+                                
+                                logger.info("Successfully parsed JSON from text_content", 
+                                        papers_count=len(papers), 
+                                        total_count=total_count)
+                            else:
+                                logger.warning("JSON data is not a dictionary", data_type=type(json_data).__name__)
+                                
+                        except json.JSONDecodeError as e:
+                            logger.warning("Failed to parse JSON from text_content", error=str(e))
+                            # 回退到文本解析
+                            parsed_papers = self._parse_paper_text_result(text_content)
+                            if parsed_papers.get("papers"):
+                                papers = parsed_papers["papers"]
+                                total_count = parsed_papers.get("total_count", 0)
+                                paper_count = len(papers)
+                    
+                elif "papers" in task_result:
+                    # 标准的结构化论文数据
+                    papers.extend(task_result["papers"])
+                    total_count = task_result.get("total", len(papers))
+                    paper_count = len(papers)
+                    
+            elif isinstance(task_result, str):
+                # 向后兼容：直接是字符串
+                text_content = task_result
+                try:
+                    # 尝试解析为 JSON
+                    import json
+                    json_data = json.loads(task_result)
+                    
+                    if isinstance(json_data, dict):
+                        papers.extend(json_data.get("papers", []))
+                        total_count = json_data.get("count", len(papers))
+                        paper_count = len(papers)
+                    else:
+                        # 不是字典，回退到文本解析
+                        raise json.JSONDecodeError("Not a dictionary", task_result, 0)
+                        
+                except json.JSONDecodeError:
+                    # 不是 JSON，按文本解析
+                    import re
+                    
+                    # 提取总数
+                    total_match = re.search(r'\*\*总数\*\*:\s*(\d+)', task_result)
+                    if total_match:
+                        total_count = int(total_match.group(1))
+                    
+                    # 计算论文数量
+                    paper_sections = re.findall(r'###\s*\d+\.', task_result)
+                    paper_count = len(paper_sections)
+        
+        # 提取更详细的统计信息
+        if papers:
+            top_authors = self._extract_top_authors(papers)
+            publication_years = self._extract_publication_years(papers)
+            avg_citations = sum(paper.get("citations", 0) for paper in papers) / len(papers) if papers else 0
+            top_venues = self._extract_top_venues(papers)
+        else:
+            top_authors = []
+            publication_years = []
+            avg_citations = 0
+            top_venues = []
         
         return {
             "summary": {
                 "total_papers": total_count,
-                "returned_papers": len(papers),
-                "top_authors": self._extract_top_authors(papers),
-                "publication_years": self._extract_publication_years(papers)
+                "returned_papers": paper_count,
+                "data_format": "json" if papers else ("text" if text_content else "unknown"),
+                "has_structured_papers": len(papers) > 0,
+                "has_text_content": bool(text_content),
+                "top_authors": top_authors[:5],
+                "publication_years": publication_years[:5],
+                "average_citations": round(avg_citations, 1),
+                "top_venues": top_venues[:3]
             },
             "insights": [
-                f"找到 {total_count} 篇相关论文",
-                f"最活跃的作者包括：{', '.join(self._extract_top_authors(papers)[:3])}",
-                f"主要发表年份：{self._get_year_distribution(papers)}"
+                f"找到 {total_count} 篇相关论文，成功获取了 {len(papers)} 篇的详细信息",
+                f"平均引用次数：{round(avg_citations, 1)} 次" if papers else "获取了论文搜索结果",
+                f"主要作者包括：{', '.join(top_authors[:3])}" if top_authors else "包含多位研究者的工作",
+                f"发表年份范围：{min(publication_years)}-{max(publication_years)}" if len(publication_years) > 1 else f"主要发表于 {publication_years[0]} 年" if publication_years else "年份信息完整",
+                f"主要发表期刊/会议：{', '.join(top_venues[:2])}" if top_venues else "涵盖多个学术期刊和会议"
             ],
             "recommendations": [
-                "建议查看引用次数最高的论文",
-                "可以进一步分析作者合作网络",
-                "建议关注最新发表的论文"
+                "建议查看引用次数最高的论文以了解核心研究",
+                "可以进一步分析作者合作网络和研究团队",
+                "建议关注最新发表的论文以跟踪前沿进展",
+                "可以按发表期刊筛选高质量论文"
             ]
         }
-    
+ 
     def _structure_paper_detail_response(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """结构化论文详情响应"""
         paper_details = {}
@@ -450,21 +565,58 @@ class ResponseIntegrator:
         }
     
     # 辅助方法
+    def _extract_top_venues(self, papers: List[Dict]) -> List[str]:
+        """提取热门期刊/会议"""
+        venue_counts = {}
+        for paper in papers:
+            venue = paper.get("venue_name", "")
+            if venue:
+                venue_counts[venue] = venue_counts.get(venue, 0) + 1
+    
+        return sorted(venue_counts.keys(), key=lambda x: venue_counts[x], reverse=True)
+
+
+
+
+
     def _extract_top_authors(self, papers: List[Dict]) -> List[str]:
-        """提取热门作者"""
+        """提取热门作者 - 处理新的作者数据结构"""
         author_counts = {}
         for paper in papers:
-            for author in paper.get("authors", []):
-                author_counts[author] = author_counts.get(author, 0) + 1
-        
-        return sorted(author_counts.keys(), key=lambda x: author_counts[x], reverse=True)
+            authors = paper.get("authors", [])
+            for author in authors:
+                if isinstance(author, dict):
+                    # 新格式：{"id": "...", "name": "..."}
+                    author_name = author.get("name", "")
+                elif isinstance(author, str):
+                    # 旧格式：直接是字符串
+                    author_name = author
+                else:
+                    continue
+                    
+                if author_name:
+                    author_counts[author_name] = author_counts.get(author_name, 0) + 1
     
+        return sorted(author_counts.keys(), key=lambda x: author_counts[x], reverse=True)    
+    
+
     def _extract_publication_years(self, papers: List[Dict]) -> List[int]:
-        """提取发表年份"""
+        """提取发表年份 - 处理时间戳格式"""
         years = []
         for paper in papers:
-            if "year" in paper:
+            if "published_at" in paper:
+                # 时间戳格式
+                timestamp = paper["published_at"]
+                try:
+                    import datetime
+                    year = datetime.datetime.fromtimestamp(timestamp).year
+                    years.append(year)
+                except:
+                    continue
+            elif "year" in paper:
+                # 直接年份格式
                 years.append(paper["year"])
+        
         return sorted(set(years), reverse=True)
     
     def _get_year_distribution(self, papers: List[Dict]) -> str:

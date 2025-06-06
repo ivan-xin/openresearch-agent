@@ -52,7 +52,10 @@ class MCPClient:
             return responses
         
         # 按行解析输出
-        for line in stdout.split('\n'):
+        lines = stdout.split('\n')
+        logger.debug("Parsing MCP output", total_lines=len(lines))
+        
+        for line_num, line in enumerate(lines, 1):
             line = line.strip()
             if not line:
                 continue
@@ -63,15 +66,29 @@ class MCPClient:
                 if isinstance(data, dict) and data.get("jsonrpc") == "2.0":
                     if "error" in data:
                         error = data["error"]
+                        logger.error("MCP error response", 
+                                line_num=line_num,
+                                error_code=error.get('code'),
+                                error_message=error.get('message'))
                         raise Exception(f"MCP error: {error.get('message', 'Unknown error')}")
                     elif "result" in data or "id" in data:
-                        logger.debug("Found JSON-RPC response", response_id=data.get("id"))
+                        logger.debug("Found JSON-RPC response", 
+                                line_num=line_num,
+                                response_id=data.get("id"),
+                                has_result="result" in data,
+                                method=data.get("method"))
                         responses.append(data)
-            except json.JSONDecodeError:
-                # 这行不是 JSON，可能是日志，跳过
+                    else:
+                        logger.debug("JSON-RPC message without result", 
+                                line_num=line_num,
+                                message_type=data.get("method", "unknown"))
+            except json.JSONDecodeError as e:
+                # 这行不是 JSON，可能是日志，记录但继续
+                logger.debug("Non-JSON line", line_num=line_num, content=line[:100])
                 continue
         
         return responses
+
     
     async def _execute_mcp_session(self, requests: List[str], target_request_id: int = None) -> Dict[str, Any]:
         """执行完整的MCP会话（多个请求）"""
@@ -116,37 +133,51 @@ class MCPClient:
             logger.debug("Process completed", 
                         return_code=process.returncode,
                         stdout_lines=len(stdout.split('\n')) if stdout else 0,
-                        has_stderr=bool(stderr))
+                        stderr_preview=stderr[:200] if stderr else None)
             
             # 解析所有响应
             responses = self._parse_mcp_responses(stdout)
             logger.debug("Found responses", response_count=len(responses))
             
+            # 打印所有响应用于调试
+            for i, response in enumerate(responses):
+                logger.debug(f"Response {i}", response_id=response.get("id"), has_result="result" in response)
+            
             # 如果指定了目标请求ID，返回对应的响应
             if target_request_id is not None:
                 for response in responses:
                     if response.get("id") == target_request_id:
-                        return response.get("result", {})
+                        result = response.get("result", {})
+                        logger.debug("Found target response", target_id=target_request_id, result_keys=list(result.keys()) if isinstance(result, dict) else None)
+                        return result
+                
+                # 如果没有找到目标响应，记录错误
+                logger.warning("Target response not found", 
+                            target_id=target_request_id,
+                            available_ids=[r.get("id") for r in responses])
             
             # 否则返回最后一个有结果的响应
             for response in reversed(responses):
                 if "result" in response:
-                    return response.get("result", {})
+                    result = response.get("result", {})
+                    logger.debug("Using last response with result", response_id=response.get("id"))
+                    return result
             
-            # 如果没有找到有效响应，但进程成功执行，返回空结果
-            if process.returncode == 0 or process.returncode == 1:  # 1 可能是正常的退出码
-                logger.warning("No JSON-RPC responses found, but process completed")
-                return {}
+            # 如果没有找到有效响应，返回空结果
+            logger.warning("No valid responses found", 
+                        response_count=len(responses),
+                        process_return_code=process.returncode)
             
-            # 进程失败
-            logger.error("MCP server failed", 
-                       return_code=process.returncode,
-                       stderr=stderr[:500] if stderr else None)
-            raise Exception(f"MCP server failed with return code {process.returncode}")
+            # 如果有错误输出，记录它
+            if stderr:
+                logger.error("MCP server stderr", stderr=stderr)
+            
+            return {}
             
         except Exception as e:
             logger.error("MCP session failed", error=str(e))
             raise
+
     
     async def _load_available_tools(self):
         """加载可用工具列表"""

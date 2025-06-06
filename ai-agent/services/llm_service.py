@@ -100,8 +100,8 @@ class LLMService:
                 if response.status != 200:
                     error_text = await response.text()
                     logger.error("Together.ai API error", 
-                               status=response.status, 
-                               error=error_text)
+                            status=response.status, 
+                            error=error_text)
                     raise Exception(f"Together.ai API error {response.status}: {error_text}")
                 
                 result = await response.json()
@@ -120,6 +120,9 @@ class LLMService:
                         total_tokens=usage.get("total_tokens")
                     )
                     
+                    # 记录响应内容用于调试
+                    logger.debug("LLM response content", content_preview=content[:200])
+                    
                     return content
                 else:
                     logger.error("Invalid response from Together.ai", response=result)
@@ -134,7 +137,8 @@ class LLMService:
         except Exception as e:
             logger.error("Failed to generate LLM response", error=str(e))
             raise
-    
+
+        
     async def analyze_intent(self, user_message: str) -> Dict[str, Any]:
         """分析用户意图"""
         try:
@@ -159,7 +163,9 @@ class LLMService:
                                 "parameters": {提取的参数},
                                 "needs_clarification": true/false,
                                 "clarification_question": "需要澄清的问题（如果需要）"
-                            }"""
+                            }
+                            
+                            重要：只返回纯JSON对象，不要使用markdown格式或代码块。"""
 
             messages = [
                 {"role": "system", "content": system_prompt},
@@ -172,12 +178,13 @@ class LLMService:
                 max_tokens=500
             )
             
-            # 尝试解析JSON响应
-            try:
-                result = json.loads(response)
+            # 解析响应 - 处理多种格式
+            result = self._parse_json_response(response)
+            
+            if result:
                 logger.info("Intent analysis completed", intent=result.get("intent_type"))
                 return result
-            except json.JSONDecodeError:
+            else:
                 logger.warning("Failed to parse intent analysis JSON, using fallback")
                 return {
                     "intent_type": "unknown",
@@ -196,6 +203,75 @@ class LLMService:
                 "needs_clarification": True,
                 "clarification_question": "抱歉，我无法理解您的请求，请重新描述"
             }
+
+    def _parse_json_response(self, response: str) -> Optional[Dict[str, Any]]:
+        """解析JSON响应，支持多种格式"""
+        if not response:
+            return None
+        
+        import re
+        
+        # 方法1: 直接解析（如果是纯JSON）
+        try:
+            return json.loads(response.strip())
+        except json.JSONDecodeError:
+            pass
+        
+        # 方法2: 提取markdown代码块中的JSON
+        # 匹配 ```json ... ``` 或 ``` ... ```
+        patterns = [
+            r'```json\s*\n?(.*?)\n?```',
+            r'```\s*\n?(.*?)\n?```',
+            r'`(.*?)`'
+        ]
+        
+        for pattern in patterns:
+            matches = re.findall(pattern, response, re.DOTALL)
+            for match in matches:
+                try:
+                    json_str = match.strip()
+                    result = json.loads(json_str)
+                    if isinstance(result, dict):
+                        return result
+                except json.JSONDecodeError:
+                    continue
+        
+        # 方法3: 查找JSON对象模式
+        json_pattern = r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}'
+        matches = re.findall(json_pattern, response)
+        for match in matches:
+            try:
+                result = json.loads(match)
+                if isinstance(result, dict) and "intent_type" in result:
+                    return result
+            except json.JSONDecodeError:
+                continue
+        
+        # 方法4: 逐行查找
+        lines = response.split('\n')
+        json_lines = []
+        in_json = False
+        
+        for line in lines:
+            line = line.strip()
+            if line.startswith('{'):
+                in_json = True
+                json_lines = [line]
+            elif in_json:
+                json_lines.append(line)
+                if line.endswith('}'):
+                    try:
+                        json_str = '\n'.join(json_lines)
+                        result = json.loads(json_str)
+                        if isinstance(result, dict):
+                            return result
+                    except json.JSONDecodeError:
+                        pass
+                    in_json = False
+                    json_lines = []
+        
+        logger.warning("Could not extract JSON from response", response_preview=response[:200])
+        return None
     
     async def generate_academic_response(self, user_query: str, 
                                        research_data: Dict[str, Any],

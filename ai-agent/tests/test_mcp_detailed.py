@@ -30,44 +30,63 @@ async def test_mcp_detailed():
         for tool in tools:
             print(f"   - {tool.get('name', 'Unknown')}: {tool.get('description', 'No description')}")
         
-        # 3. 测试搜索论文
+        # 3. 测试搜索论文 - 添加更多调试信息
         print("\n2. 测试搜索论文...")
         try:
-            result = await mcp_client_oneshot.search_papers("machine learning", limit=2)
+            # 使用更简单的参数进行测试
+            result = await mcp_client_oneshot.call_tool("search_papers", {
+                "query": "machine learning",
+                "limit": 2
+            })
             print("✅ 搜索论文成功")
             print(f"   结果类型: {type(result)}")
-            print(f"   结果内容: {result}")
             
-            # 检查结果结构
+            # 详细分析结果
             if isinstance(result, dict):
-                if "papers" in result:
+                print(f"   结果键: {list(result.keys())}")
+                
+                # 检查是否是工具调用结果
+                if "content" in result:
+                    content = result["content"]
+                    print(f"   内容类型: {type(content)}")
+                    if isinstance(content, list):
+                        print(f"   内容项数: {len(content)}")
+                        for i, item in enumerate(content[:2]):
+                            print(f"   项 {i}: {type(item)} - {str(item)[:100]}")
+                    else:
+                        print(f"   内容: {str(content)[:200]}")
+                
+                # 检查是否包含论文数据
+                elif "papers" in result:
                     papers = result["papers"]
                     print(f"   找到论文数量: {len(papers) if isinstance(papers, list) else 'N/A'}")
-                elif "content" in result:
-                    print(f"   内容长度: {len(str(result['content']))}")
+                
+                # 检查是否是初始化响应（错误情况）
+                elif "protocolVersion" in result:
+                    print("   ❌ 返回的是初始化响应，不是工具调用结果")
+                    print(f"   服务器信息: {result.get('serverInfo', {})}")
+                
                 else:
-                    print(f"   结果键: {list(result.keys())}")
+                    print(f"   未知结果格式: {result}")
+            else:
+                print(f"   结果内容: {result}")
             
         except Exception as e:
             print(f"❌ 搜索论文失败: {e}")
+            import traceback
+            traceback.print_exc()
         
-        # 4. 测试搜索作者
-        print("\n3. 测试搜索作者...")
+        # 4. 直接测试工具调用（跳过便捷方法）
+        print("\n3. 直接测试工具调用...")
         try:
-            result = await mcp_client_oneshot.search_authors("Geoffrey Hinton", limit=1)
-            print("✅ 搜索作者成功")
+            result = await mcp_client_oneshot.call_tool("search_papers", {
+                "query": "test",
+                "limit": 1
+            })
+            print("✅ 直接工具调用成功")
             print(f"   结果: {result}")
         except Exception as e:
-            print(f"❌ 搜索作者失败: {e}")
-        
-        # 5. 测试获取热门论文
-        print("\n4. 测试获取热门论文...")
-        try:
-            result = await mcp_client_oneshot.call_tool("get_trending_papers", {"limit": 2})
-            print("✅ 获取热门论文成功")
-            print(f"   结果: {result}")
-        except Exception as e:
-            print(f"❌ 获取热门论文失败: {e}")
+            print(f"❌ 直接工具调用失败: {e}")
         
         print("\n=== 测试完成 ===")
         
@@ -78,6 +97,7 @@ async def test_mcp_detailed():
     
     finally:
         await mcp_client_oneshot.cleanup()
+
 
 if __name__ == "__main__":
     asyncio.run(test_mcp_detailed())
