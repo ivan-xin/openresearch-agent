@@ -351,6 +351,7 @@ class AcademicAgent:
                                         query_id: str) -> Dict[str, Any]:
         """执行完整的处理流水线"""
         
+        start_time = datetime.now()
         try:
             # 1. 获取或创建对话上下文
             conversation = await self._get_or_create_conversation(
@@ -428,17 +429,19 @@ class AcademicAgent:
             # 10. 保存对话
             await self.context_manager.update_conversation(conversation)
             
-            # 11. 添加查询元数据
+            # 11. 计算处理时间 - 修复时区问题
+            end_time = datetime.now()
+            processing_time = (end_time - start_time).total_seconds()
+            
+            # 12. 添加查询元数据
             final_response["query_id"] = query_id
             final_response["conversation_id"] = conversation.id
             final_response["task_execution_stats"] = task_plan.get_completion_stats()
-            final_response["processing_time"] = (
-                datetime.now() - conversation.created_at
-            ).total_seconds()
+            final_response["processing_time"] = processing_time
             
             logger.info("Query processing completed successfully", 
                     query_id=query_id,
-                    processing_time=final_response["processing_time"],
+                    processing_time=processing_time,
                     task_stats=final_response["task_execution_stats"])
             
             return final_response
@@ -548,7 +551,6 @@ class AcademicAgent:
         self.active_conversations[conversation.id] = conversation
         return conversation
 
-    # 添加任务计划调试方法
     async def get_task_plan_debug_info(self, query: str, user_id: str = "debug_user") -> Dict[str, Any]:
         """获取任务计划的调试信息（用于开发和测试）"""
         try:
@@ -573,15 +575,8 @@ class AcademicAgent:
                         "confidence": intent_result.primary_intent.confidence,
                         "parameters": intent_result.primary_intent.parameters
                     },
-                    "secondary_intents": [
-                        {
-                            "type": intent.type.value,
-                            "confidence": intent.confidence,
-                            "parameters": intent.parameters
-                        }
-                        for intent in intent_result.secondary_intents
-                    ],
-                    "needs_clarification": intent_result.needs_clarification
+                    "needs_clarification": intent_result.needs_clarification,
+                    "clarification_questions": getattr(intent_result, 'clarification_questions', [])
                 },
                 "task_plan": task_plan.to_dict(),
                 "execution_flow": self._analyze_execution_flow(task_plan)

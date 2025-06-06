@@ -80,12 +80,12 @@ class ResponseIntegrator:
             IntentType.GET_PAPER_DETAILS: "paper_detail",
             IntentType.SEARCH_AUTHORS: "author_list",
             IntentType.GET_AUTHOR_DETAILS: "author_detail",
-            IntentType.CITATION_ANALYSIS: "network_analysis",
-            IntentType.COLLABORATION_ANALYSIS: "network_analysis",
-            IntentType.TREND_ANALYSIS: "trend_report",
+            IntentType.CITATION_NETWORK: "network_analysis",
+            IntentType.COLLABORATION_NETWORK: "network_analysis",
+            IntentType.RESEARCH_TRENDS: "trend_report",
             IntentType.RESEARCH_LANDSCAPE: "landscape_overview",
-            IntentType.PAPER_REVIEW: "review_report",
-            IntentType.PAPER_GENERATION: "generation_guide",
+            # IntentType.PAPER_REVIEW: "review_report",
+            # IntentType.PAPER_GENERATION: "generation_guide",
             IntentType.UNKNOWN: "clarification"
         }
         
@@ -270,26 +270,72 @@ class ResponseIntegrator:
         }
     
     async def _generate_natural_response(self,
-                                       query: str,
-                                       structured_response: Dict[str, Any],
-                                       intent_result: IntentAnalysisResult) -> str:
+                                    query: str,
+                                    structured_response: Dict[str, Any],
+                                    intent_result: IntentAnalysisResult) -> str:
         """生成自然语言响应"""
         try:
-            # 构建响应生成提示词
-            response_prompt = self._build_response_prompt(
-                query, structured_response, intent_result
-            )
+            # 准备研究数据
+            research_data = {
+                "strategy": structured_response.get("strategy"),
+                "summary": structured_response.get("summary", {}),
+                "insights": structured_response.get("insights", []),
+                "recommendations": structured_response.get("recommendations", []),
+                "intent_type": intent_result.primary_intent.type.value,
+                "confidence": intent_result.primary_intent.confidence
+            }
             
-            # 调用LLM生成自然语言响应
-            natural_response = await self.llm_service.generate_response(
-                structured_response, query
-            )
-            
-            return natural_response
+            # 调用 LLM 服务生成学术响应
+            try:
+                natural_response = await self.llm_service.generate_academic_response(
+                    user_query=query,
+                    research_data=research_data,
+                    conversation_history=None
+                )
+                
+                if isinstance(natural_response, str) and natural_response.strip():
+                    logger.info("LLM generated academic response successfully")
+                    return natural_response.strip()
+                else:
+                    logger.warning("LLM generated empty response")
+                    
+            except Exception as llm_error:
+                logger.warning("LLM academic response generation failed", error=str(llm_error))
+
+            # 备选方案：使用基础的 generate_response 方法
+            try:
+                messages = [
+                    {
+                        "role": "system",
+                        "content": "你是一个专业的学术研究助手。请根据用户查询和研究数据生成友好、专业的回复。"
+                    },
+                    {
+                        "role": "user",
+                        "content": f"用户查询：{query}\n\n研究数据：{research_data}\n\n请生成自然的中文回复："
+                    }
+                ]
+                
+                natural_response = await self.llm_service.generate_response(
+                    messages=messages,
+                    temperature=0.7,
+                    max_tokens=1000
+                )
+                
+                if isinstance(natural_response, str) and natural_response.strip():
+                    logger.info("LLM basic response generation successful")
+                    return natural_response.strip()
+                    
+            except Exception as basic_error:
+                logger.warning("LLM basic response generation failed", error=str(basic_error))
+
+            # 最后使用备选响应
+            logger.info("Using fallback response generation")
+            return self._create_fallback_response(structured_response)
             
         except Exception as e:
             logger.error("Natural response generation failed", error=str(e))
             return self._create_fallback_response(structured_response)
+
     
     def _build_response_prompt(self,
                              query: str,
@@ -300,12 +346,12 @@ class ResponseIntegrator:
         base_prompt = self.prompts.get_response_generation_prompt(strategy)
         
         context = f"""
-用户查询：{query}
-意图类型：{intent_result.primary_intent.type.value}
-数据摘要：{structured_response.get('summary', {})}
-关键洞察：{structured_response.get('insights', [])}
-建议：{structured_response.get('recommendations', [])}
-"""
+                    用户查询：{query}
+                    意图类型：{intent_result.primary_intent.type.value}
+                    数据摘要：{structured_response.get('summary', {})}
+                    关键洞察：{structured_response.get('insights', [])}
+                    建议：{structured_response.get('recommendations', [])}
+                    """
         
         return f"{base_prompt}\n\n{context}"
     
@@ -358,7 +404,7 @@ class ResponseIntegrator:
         if intent_type == IntentType.SEARCH_PAPERS:
             suggestions = [
                 "查看具体论文的详细信息",
-                "分析作者的其他工作",
+                "分析作者的其他工作", 
                 "探索相关的研究趋势"
             ]
         elif intent_type == IntentType.SEARCH_AUTHORS:
@@ -367,11 +413,23 @@ class ResponseIntegrator:
                 "分析作者的合作网络",
                 "了解作者的研究轨迹"
             ]
-        elif intent_type == IntentType.TREND_ANALYSIS:
+        elif intent_type == IntentType.RESEARCH_TRENDS:
             suggestions = [
                 "深入分析特定研究方向",
-                "比较不同时间段的趋势",
+                "比较不同时间段的趋势", 
                 "探索跨领域的研究机会"
+            ]
+        elif intent_type == IntentType.GENERAL_CHAT:
+            suggestions = [
+                "您可以询问学术研究相关的问题",
+                "尝试搜索特定主题的论文",
+                "查找感兴趣的研究作者"
+            ]
+        else:
+            suggestions = [
+                "请提供更具体的查询",
+                "尝试使用不同的关键词", 
+                "描述您想了解的研究领域"
             ]
         
         return suggestions

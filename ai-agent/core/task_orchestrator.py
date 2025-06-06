@@ -24,11 +24,12 @@ class TaskOrchestrator:
             primary_tasks = self._create_tasks_for_intent(intent_result.primary_intent)
             
             # 处理次要意图（如果有）
-            secondary_tasks = []
-            for secondary_intent in intent_result.secondary_intents:
-                secondary_tasks.extend(self._create_tasks_for_intent(secondary_intent))
+            # secondary_tasks = []
+            # for secondary_intent in intent_result.secondary_intents:
+            #     secondary_tasks.extend(self._create_tasks_for_intent(secondary_intent))
             
-            all_tasks = primary_tasks + secondary_tasks
+            # all_tasks = primary_tasks + secondary_tasks
+            all_tasks = primary_tasks
             
             # 创建简化的任务计划
             task_plan = TaskPlan(tasks=all_tasks)
