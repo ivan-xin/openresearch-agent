@@ -18,8 +18,10 @@ class Settings(BaseSettings):
     port: int = Field(default=8000, env="PORT")
     
     # 日志配置
-    log_level: str = Field(default="INFO", env="LOG_LEVEL")
-    
+    log_level: str = Field(default="DEBUG", env="LOG_LEVEL")
+    log_file: Optional[str] = Field(default="logs/app.log", env="LOG_FILE")
+    log_max_size: int = Field(default=10485760, env="LOG_MAX_SIZE")  # 10MB
+    log_backup_count: int = Field(default=5, env="LOG_BACKUP_COUNT")
     # 数据库配置
     database_url: Optional[str] = Field(default=None, env="DATABASE_URL")
     

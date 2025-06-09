@@ -10,5 +10,5 @@ __all__ = [
     "settings",
     "database_config", 
     "llm_config",
-    "mcp_config"
+    "mcp_config",
 ]

@@ -106,16 +106,26 @@ class ResponseIntegrator:
     def _select_response_strategy(self, intent_type: IntentType) -> str:
         """根据意图类型选择响应策略"""
         strategy_mapping = {
+        # 论文相关
             IntentType.SEARCH_PAPERS: "paper_list",
             IntentType.GET_PAPER_DETAILS: "paper_detail",
+            IntentType.GET_PAPER_CITATIONS: "citation_analysis",
+            
             IntentType.SEARCH_AUTHORS: "author_list",
-            IntentType.GET_AUTHOR_DETAILS: "author_detail",
-            IntentType.CITATION_NETWORK: "network_analysis",
-            IntentType.COLLABORATION_NETWORK: "network_analysis",
-            IntentType.RESEARCH_TRENDS: "trend_report",
-            IntentType.RESEARCH_LANDSCAPE: "landscape_overview",
+            IntentType.GET_AUTHOR_DETAILS: "author_detail",  # 虽然值是"search_authors"，但策略可以不同
+            IntentType.GET_AUTHOR_PAPERS: "author_papers",
+
+            # 趋势分析
+            IntentType.GET_TRENDING_PAPERS: "trending_papers",
+            IntentType.GET_TOP_KEYWORDS: "keyword_analysis",
+
             # IntentType.PAPER_REVIEW: "review_report",
             # IntentType.PAPER_GENERATION: "generation_guide",
+            
+            # 通用对话
+            IntentType.GENERAL_CHAT: "general_chat",
+            
+            # 未知意图
             IntentType.UNKNOWN: "clarification"
         }
         
@@ -324,7 +334,133 @@ class ResponseIntegrator:
                 "关注不同机构的研究重点"
             ]
         }
-    
+    def _structure_author_detail_response(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """结构化作者详情响应"""
+        author_details = {}
+        
+        for task_result in data.values():
+            if isinstance(task_result, dict):
+                # 处理MCP格式的响应
+                if task_result.get("mcp_format") and task_result.get("content_type") == "text":
+                    text_content = task_result.get("text_content", "")
+                    try:
+                        import json
+                        json_data = json.loads(text_content)
+                        if isinstance(json_data, dict) and "authors" in json_data:
+                            authors = json_data["authors"]
+                            if authors and len(authors) > 0:
+                                author_details = authors[0]  # 取第一个作者的详细信息
+                                break
+                    except json.JSONDecodeError:
+                        logger.warning("Failed to parse author details JSON")
+                        continue
+                # 处理直接的作者数据
+                elif "authors" in task_result:
+                    authors = task_result["authors"]
+                    if authors and len(authors) > 0:
+                        author_details = authors[0]
+                        break
+                # 处理单个作者对象
+                elif "name" in task_result or "id" in task_result:
+                    author_details = task_result
+                    break
+        
+        if not author_details:
+            return {
+                "summary": {},
+                "insights": ["未找到作者详细信息"],
+                "recommendations": ["请检查作者姓名是否正确", "尝试使用不同的搜索关键词"]
+            }
+        
+        # 提取作者基本信息
+        author_name = author_details.get("name", "未知作者")
+        affiliation = author_details.get("affiliation", "")
+        email = author_details.get("email", "")
+        h_index = author_details.get("h_index", 0)
+        paper_count = author_details.get("paper_count", 0)
+        citation_count = author_details.get("citation_count", 0)
+        research_interests = author_details.get("research_interests", [])
+        
+        # 处理合作者信息
+        coauthors = author_details.get("coauthors", [])
+        coauthor_count = len(coauthors)
+        
+        # 分析合作者的机构分布
+        coauthor_institutions = []
+        collaboration_strength = {}
+        
+        for coauthor in coauthors:
+            if isinstance(coauthor, dict):
+                # 收集合作者机构
+                coauthor_affiliation = coauthor.get("affiliation", "")
+                if coauthor_affiliation and coauthor_affiliation not in coauthor_institutions:
+                    coauthor_institutions.append(coauthor_affiliation)
+                
+                # 分析合作强度
+                coauthor_name = coauthor.get("name", "")
+                collaboration_count = coauthor.get("collaboration_count", 0)
+                if coauthor_name and collaboration_count > 0:
+                    collaboration_strength[coauthor_name] = collaboration_count
+        
+        # 找出最频繁的合作者
+        top_collaborators = sorted(collaboration_strength.items(), 
+                                key=lambda x: x[1], reverse=True)[:5]
+        
+        # 分析研究活跃度
+        activity_level = "低"
+        if paper_count >= 20:
+            activity_level = "高"
+        elif paper_count >= 10:
+            activity_level = "中"
+        elif paper_count >= 5:
+            activity_level = "中低"
+        
+        # 分析影响力
+        impact_level = "较低"
+        if h_index >= 20:
+            impact_level = "很高"
+        elif h_index >= 10:
+            impact_level = "高"
+        elif h_index >= 5:
+            impact_level = "中等"
+        elif h_index >= 2:
+            impact_level = "较高"
+        
+        return {
+            "summary": {
+                "author_name": author_name,
+                "affiliation": affiliation,
+                "email": email,
+                "h_index": h_index,
+                "paper_count": paper_count,
+                "citation_count": citation_count,
+                "coauthor_count": coauthor_count,
+                "research_interests": research_interests if research_interests else [],
+                "top_collaborators": [collab[0] for collab in top_collaborators],
+                "collaboration_institutions": coauthor_institutions[:5],  # 前5个机构
+                "activity_level": activity_level,
+                "impact_level": impact_level
+            },
+            "insights": [
+                f"作者 {author_name} 共发表 {paper_count} 篇论文",
+                f"H指数为 {h_index}，学术影响力{impact_level}",
+                f"总引用次数：{citation_count} 次" if citation_count > 0 else "引用信息暂无",
+                f"与 {coauthor_count} 位学者有合作关系" if coauthor_count > 0 else "暂无合作者信息",
+                f"主要合作机构：{', '.join(coauthor_institutions[:3])}" if coauthor_institutions else "机构信息不完整",
+                f"最频繁合作者：{', '.join([collab[0] for collab in top_collaborators[:3]])}" if top_collaborators else "合作关系信息不可用",
+                f"研究活跃度：{activity_level}"
+            ],
+            "recommendations": [
+                "查看该作者的论文列表" if paper_count > 0 else "搜索该作者的相关论文",
+                "分析该作者的合作网络" if coauthor_count > 0 else "探索该作者的潜在合作关系",
+                "了解该作者的研究轨迹和发展趋势",
+                "查看该作者在特定研究领域的贡献",
+                "分析该作者与其他知名学者的关系" if top_collaborators else "探索该作者的学术影响力",
+                f"关注该作者所在机构 {affiliation} 的其他研究者" if affiliation else "了解该作者的学术背景"
+            ]
+        }
+
+
     def _structure_network_analysis_response(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """结构化网络分析响应"""
         network_data = {}

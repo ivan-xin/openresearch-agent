@@ -30,7 +30,7 @@ class TaskOrchestrator:
             
             # all_tasks = primary_tasks + secondary_tasks
             all_tasks = primary_tasks
-            
+
             # 创建简化的任务计划
             task_plan = TaskPlan(tasks=all_tasks)
             
@@ -47,15 +47,31 @@ class TaskOrchestrator:
     def _build_intent_tool_mapping(self) -> Dict[IntentType, List[str]]:
         """构建意图到工具的映射关系"""
         return {
+            # 论文相关
             IntentType.SEARCH_PAPERS: ["search_papers"],
             IntentType.GET_PAPER_DETAILS: ["get_paper_details"],
+            IntentType.GET_PAPER_CITATIONS: ["get_paper_citations"],
+            
+            # 作者相关
             IntentType.SEARCH_AUTHORS: ["search_authors"],
-            IntentType.GET_AUTHOR_DETAILS: ["get_author_details"],
-            IntentType.CITATION_NETWORK: ["get_citation_network"],  # 修改这里
-            IntentType.COLLABORATION_NETWORK: ["get_collaboration_network"],  # 修改这里
-            IntentType.RESEARCH_TRENDS: ["get_research_trends"],  # 修改这里
-            IntentType.RESEARCH_LANDSCAPE: ["analyze_research_landscape"],
+            IntentType.GET_AUTHOR_DETAILS: ["search_authors"],
+            IntentType.GET_AUTHOR_PAPERS: ["get_author_papers"],
+            
+            # 网络分析
+            IntentType.CITATION_NETWORK: ["get_paper_citations"],
+            IntentType.COLLABORATION_NETWORK: ["search_authors"],  # 使用搜索作者作为替代
+            
+            # 趋势分析
+            IntentType.GET_TRENDING_PAPERS: ["get_trending_papers"],
+            IntentType.GET_TOP_KEYWORDS: ["get_top_keywords"],
+            
+            # 通用对话 - 不需要工具调用
+            IntentType.GENERAL_CHAT: [],
+            
+            # 未知意图 - 不需要工具调用
+            IntentType.UNKNOWN: [],
         }
+
     
     def _create_tasks_for_intent(self, intent) -> List[Task]:
         """为特定意图创建任务列表"""
@@ -159,14 +175,15 @@ class TaskOrchestrator:
             }
         elif tool_name == "search_authors":
             tool_arguments = {
-                "author_name": intent_parameters.get("author_name", ""),
+                "query": intent_parameters.get("author_name", ""),
                 "limit": intent_parameters.get("limit", 10)
             }
-        elif tool_name == "get_author_details":
-            tool_arguments = {
-                "author_id": intent_parameters.get("author_id", ""),
-                "include_papers": intent_parameters.get("include_papers", True)
-            }
+        # elif tool_name == "get_author_details":
+        #     tool_arguments = {
+        #         "query": intent_parameters.get("author_name", intent_parameters.get("query", "")),
+        #         "limit": intent_parameters.get("limit", 10),
+        #         "include_coauthors": intent_parameters.get("include_coauthors", True)
+        #     }
         elif tool_name == "get_citation_network":
             tool_arguments = {
                 "paper_id": intent_parameters.get("paper_id", ""),

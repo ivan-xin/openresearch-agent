@@ -17,8 +17,10 @@ from core import AcademicAgent
 
 # 配置和工具
 from configs.settings import settings
-from utils.logger import get_logger
+from utils.logger import setup_logging, get_logger
 
+
+setup_logging()
 logger = get_logger(__name__)
 
 # 全局Agent实例
@@ -31,6 +33,8 @@ async def lifespan(app: FastAPI):
     
     # 启动时初始化
     logger.info("Starting AI Agent application")
+    logger.info(f"Debug Mode: {settings.debug}")
+    logger.info(f"Log Level: {settings.log_level}")
     try:
         # 1. 初始化数据层
         logger.info("Initializing data layer...")

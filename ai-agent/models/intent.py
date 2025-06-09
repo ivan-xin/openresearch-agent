@@ -11,19 +11,23 @@ class IntentType(Enum):
     # 论文相关
     SEARCH_PAPERS = "search_papers"
     GET_PAPER_DETAILS = "get_paper_details"
-    
+    GET_PAPER_CITATIONS = "get_paper_citations"
+
     # 作者相关
     SEARCH_AUTHORS = "search_authors"
-    GET_AUTHOR_DETAILS = "get_author_details"
+    GET_AUTHOR_DETAILS = "search_authors"
+    GET_AUTHOR_PAPERS = "get_author_papers"
     
     # 网络分析
     CITATION_NETWORK = "citation_network"
     COLLABORATION_NETWORK = "collaboration_network"
     
     # 趋势分析
-    RESEARCH_TRENDS = "research_trends"
-    RESEARCH_LANDSCAPE = "research_landscape"
-    
+    GET_TRENDING_PAPERS = "get_trending_papers"
+    GET_TOP_KEYWORDS = "get_top_keywords"
+    RESEARCH_TRENDS = "unknown"  # todo
+    RESEARCH_LANDSCAPE = "unknown"  # todo
+
     # 通用对话
     GENERAL_CHAT = "general_chat"
     
@@ -112,6 +116,20 @@ class IntentTemplates:
             type=IntentType.SEARCH_AUTHORS,
             confidence=confidence,
             parameters={"query": query}
+        )
+    
+    @staticmethod
+    def get_author_details(query: str, confidence: float = 0.8) -> Intent:
+        """获取作者详情意图 - 使用相同的search_authors工具"""
+        return Intent(
+            type=IntentType.GET_AUTHOR_DETAILS,
+            confidence=confidence,
+            parameters={
+                "query": query,
+                "detailed": True,  # 标记为详细查询
+                "include_coauthors": True,
+                "include_papers": True
+            }
         )
     
     @staticmethod
