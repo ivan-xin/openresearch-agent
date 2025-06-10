@@ -165,7 +165,7 @@ class IntentAnalyzer:
             )
             
             # 4. 检查是否需要澄清
-            needs_clarification = confidence < 0.7 or not parameters
+            needs_clarification = self._should_clarify(intent_type_enum, confidence, parameters)
             clarification_questions = []
             if needs_clarification:
                 clarification_questions = self._generate_clarification_questions({
@@ -189,6 +189,50 @@ class IntentAnalyzer:
         except Exception as e:
             logger.error("Failed to parse LLM response", error=str(e))
             return self._create_fallback_intent(original_query)
+
+    def _should_clarify(self, intent_type: IntentType, confidence: float, parameters: Dict[str, Any]) -> bool:
+        """判断是否需要澄清"""
+        # 置信度过低时需要澄清
+        if confidence < 0.7:
+            return True
+        
+        # 定义需要必要参数的意图类型
+        intents_requiring_params = {
+            IntentType.SEARCH_PAPERS: ["query"],
+            IntentType.GET_PAPER_DETAILS: ["paper_id", "title", "query"],  # 至少需要其中一个
+            IntentType.GET_PAPER_CITATIONS: ["paper_id", "title", "query"],
+            IntentType.SEARCH_AUTHORS: ["query", "author_name"],
+            IntentType.GET_AUTHOR_DETAILS: ["query", "author_name", "author_id"],
+            IntentType.GET_AUTHOR_PAPERS: ["author_name", "author_id"],
+        }
+        
+        # 不需要必要参数的意图类型
+        intents_not_requiring_params = {
+            IntentType.GENERAL_CHAT,
+            IntentType.GET_TRENDING_PAPERS,  # 可以返回全领域热门
+            IntentType.GET_TOP_KEYWORDS,     # 可以返回全领域关键词
+            IntentType.CITATION_NETWORK,     # 可以提供通用网络分析
+            IntentType.COLLABORATION_NETWORK,
+            IntentType.UNKNOWN
+        }
+        
+        # 如果是不需要参数的意图，直接返回False
+        if intent_type in intents_not_requiring_params:
+            return False
+        
+        # 检查需要参数的意图是否有必要参数
+        if intent_type in intents_requiring_params:
+            required_params = intents_requiring_params[intent_type]
+            # 检查是否至少有一个必要参数存在且不为空
+            has_required_param = any(
+                parameters.get(param) and str(parameters.get(param)).strip() 
+                for param in required_params
+            )
+            return not has_required_param
+        
+        # 对于其他意图，如果没有参数则需要澄清
+        return not parameters or not any(v for v in parameters.values() if v)
+
 
     def _map_to_known_intent(self, intent_type: str, query: str) -> IntentType:
         """将未知的意图类型映射到已知的意图类型"""

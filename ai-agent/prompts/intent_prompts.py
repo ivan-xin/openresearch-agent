@@ -14,6 +14,7 @@ class IntentPrompts:
             "citation_analysis": "引用分析",
             "collaboration_analysis": "合作关系分析",
             "trend_analysis": "研究趋势分析",
+            "get_top_keywords": "获取热门话题或者关键词",
             "research_landscape": "研究全景分析",
             "paper_review": "论文审核",
             "paper_generation": "论文生成",
@@ -89,6 +90,7 @@ class IntentPrompts:
             "citation_analysis": "请提取引用分析相关的参数：目标论文、分析类型、时间范围等。",
             "collaboration_analysis": "请提取合作分析相关的参数：目标作者/机构、分析维度、时间范围等。",
             "trend_analysis": "请提取趋势分析相关的参数：研究领域、时间范围、分析粒度等。",
+            "get_top_keywords": "请提取热门话题分析相关的参数：目标研究领域、时间范围、关键词数量、热度指标等。",
             "research_landscape": "请提取研究全景相关的参数：研究领域、分析维度、详细程度等。"
         }
         

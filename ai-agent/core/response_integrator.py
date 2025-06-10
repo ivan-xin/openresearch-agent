@@ -157,6 +157,8 @@ class ResponseIntegrator:
             structured_response.update(self._structure_network_analysis_response(processed_data))
         elif strategy == "trending_papers":
             structured_response.update(self._structure_trend_report_response(processed_data))
+        elif strategy == "keyword_analysis":
+            structured_response.update(self._structure_keyword_analysis_response(processed_data))
         elif strategy == "landscape_overview":
             structured_response.update(self._structure_landscape_response(processed_data))
         elif strategy == "review_report":
@@ -478,6 +480,7 @@ class ResponseIntegrator:
                 "关注不同机构的研究重点"
             ]
         }
+    
     def _structure_author_detail_response(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """结构化作者详情响应"""
         author_details = {}
@@ -731,6 +734,99 @@ class ResponseIntegrator:
             ]
         }
     
+    def _structure_keyword_analysis_response(self, data: Dict[str, Any]) -> Dict[str, Any]:
+        """结构化关键词分析响应 - 处理 MCP 格式数据"""
+        keywords = []
+        total_count = 0
+        text_content = ""
+        
+        for task_result in data.values():
+            if isinstance(task_result, dict):
+                if task_result.get("mcp_format") and task_result.get("content_type") == "text":
+                    # 从 text_content 中获取 JSON 字符串
+                    text_content = task_result.get("text_content", "")
+                    
+                    if text_content:
+                        try:
+                            import json
+                            json_data = json.loads(text_content)
+                            
+                            if isinstance(json_data, dict):
+                                keywords = json_data.get("keywords", [])
+                                total_count = json_data.get("count", len(keywords))
+                                
+                                logger.info("Successfully parsed keywords from text_content", 
+                                        keywords_count=len(keywords), 
+                                        total_count=total_count)
+                            else:
+                                logger.warning("JSON data is not a dictionary", data_type=type(json_data).__name__)
+                                
+                        except json.JSONDecodeError as e:
+                            logger.warning("Failed to parse JSON from text_content", error=str(e))
+                
+                elif "keywords" in task_result:
+                    # 标准的结构化关键词数据
+                    keywords = task_result["keywords"]
+                    total_count = task_result.get("count", len(keywords))
+        
+        # 如果没有找到关键词数据
+        if not keywords:
+            return {
+                "summary": {
+                    "total_keywords": 0,
+                    "data_format": "empty"
+                },
+                "insights": ["未找到热门关键词数据"],
+                "recommendations": ["尝试指定具体的研究领域", "检查搜索条件是否正确"]
+            }
+        
+        # 提取统计信息
+        total_papers = sum(kw.get("paper_count", 0) for kw in keywords)
+        avg_papers_per_keyword = round(total_papers / len(keywords), 1) if keywords else 0
+        
+        # 找出最热门的关键词
+        top_keyword = max(keywords, key=lambda x: x.get("paper_count", 0)) if keywords else {}
+        top_keyword_name = top_keyword.get("keyword", "")
+        top_keyword_count = top_keyword.get("paper_count", 0)
+        
+        # 分类关键词（简单的领域分类）
+        cs_keywords = [kw for kw in keywords if kw.get("keyword", "").startswith("cs.")]
+        physics_keywords = [kw for kw in keywords if kw.get("keyword", "").startswith("physics.")]
+        other_keywords = [kw for kw in keywords if not kw.get("keyword", "").startswith(("cs.", "physics."))]
+        
+        # 提取前5个热门关键词
+        sorted_keywords = sorted(keywords, key=lambda x: x.get("paper_count", 0), reverse=True)
+        top_5_keywords = [(kw.get("keyword", ""), kw.get("paper_count", 0)) for kw in sorted_keywords[:5]]
+        
+        return {
+            "summary": {
+                "total_keywords": total_count,
+                "returned_keywords": len(keywords),
+                "total_papers": total_papers,
+                "avg_papers_per_keyword": avg_papers_per_keyword,
+                "top_keyword": top_keyword_name,
+                "top_keyword_count": top_keyword_count,
+                "cs_keywords_count": len(cs_keywords),
+                "physics_keywords_count": len(physics_keywords),
+                "other_keywords_count": len(other_keywords),
+                "top_5_keywords": top_5_keywords
+            },
+            "insights": [
+                f"找到 {total_count} 个热门关键词，涵盖 {total_papers} 篇论文",
+                f"最热门关键词：{top_keyword_name}（{top_keyword_count} 篇论文）" if top_keyword_name else "关键词热度分布均匀",
+                f"平均每个关键词对应 {avg_papers_per_keyword} 篇论文",
+                f"计算机科学领域：{len(cs_keywords)} 个关键词" if cs_keywords else "计算机科学领域关键词较少",
+                f"物理学领域：{len(physics_keywords)} 个关键词" if physics_keywords else "物理学领域关键词较少",
+                f"其他领域：{len(other_keywords)} 个关键词" if other_keywords else "主要集中在计算机和物理领域"
+            ],
+            "recommendations": [
+                f"深入研究热门关键词 '{top_keyword_name}' 相关的论文" if top_keyword_name else "关注论文数量较多的关键词",
+                "比较不同领域关键词的发展趋势",
+                "分析跨领域关键词的研究机会",
+                "关注新兴关键词的发展潜力"
+            ]
+        }
+
     async def _generate_natural_response(self,
                                     query: str,
                                     structured_response: Dict[str, Any],
