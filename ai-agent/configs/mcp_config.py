@@ -12,7 +12,7 @@ class MCPConfig(BaseSettings):
     
     # stdio 协议配置
     server_command: List[str] = Field(
-        default=["python", "/path/to/openresearch-mcp-server/src/main.py"],
+        default=["python", "../../../openresearch-mcp-server/src/main.py"],
         env="MCP_SERVER_COMMAND"
     )
 
@@ -33,7 +33,11 @@ class MCPConfig(BaseSettings):
     @property
     def mcp_cwd(self) -> str:
         """MCP服务器工作目录"""
-        return "/Users/zhouxin/Workspace/ai-space/openresearch/openresearch-mcp-server"
+        # 从当前文件位置计算到 openresearch-mcp-server 的相对路径
+        # 当前文件: ai-agent/configs/mcp_config.py
+        # 目标目录: ../../../openresearch-mcp-server
+        current_dir = os.path.dirname(os.path.abspath(__file__))  # configs目录
+        return os.path.normpath(os.path.join(current_dir, "../../../openresearch-mcp-server"))
     
     @property
     def mcp_command(self) -> str:
@@ -65,8 +69,6 @@ class MCPConfig(BaseSettings):
         
         return full_path
 
-
-    
     @property
     def actual_server_command(self) -> List[str]:
         """实际的服务器命令（使用正确的Python路径）"""
@@ -86,7 +88,6 @@ class MCPConfig(BaseSettings):
             ]
         return self.actual_server_command
 
-    
     def model_post_init(self, __context):
         """初始化后处理"""
         # 如果环境变量中有 MCP_SERVER_COMMAND，尝试解析
