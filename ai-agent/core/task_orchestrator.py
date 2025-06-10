@@ -170,7 +170,7 @@ class TaskOrchestrator:
             }
         elif tool_name == "get_paper_details":
             tool_arguments = {
-                "paper_id": intent_parameters.get("paper_id", ""),
+                "title": intent_parameters.get("paper_title", ""),
                 "include_citations": intent_parameters.get("include_citations", True)
             }
         elif tool_name == "search_authors":
@@ -186,7 +186,7 @@ class TaskOrchestrator:
         #     }
         elif tool_name == "get_citation_network":
             tool_arguments = {
-                "paper_id": intent_parameters.get("paper_id", ""),
+                "title": intent_parameters.get("paper_title", ""),
                 "depth": intent_parameters.get("depth", 2)
             }
         elif tool_name == "get_collaboration_network":

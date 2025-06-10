@@ -138,7 +138,7 @@ class IntentTemplates:
         return Intent(
             type=IntentType.GET_PAPER_DETAILS,
             confidence=confidence,
-            parameters={"paper_id": paper_id}
+            parameters={"title": paper_id}
         )
     
     @staticmethod

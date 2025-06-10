@@ -155,7 +155,7 @@ class ResponseIntegrator:
             structured_response.update(self._structure_author_detail_response(processed_data))
         elif strategy == "network_analysis":
             structured_response.update(self._structure_network_analysis_response(processed_data))
-        elif strategy == "trend_report":
+        elif strategy == "trending_papers":
             structured_response.update(self._structure_trend_report_response(processed_data))
         elif strategy == "landscape_overview":
             structured_response.update(self._structure_landscape_response(processed_data))
@@ -281,33 +281,177 @@ class ResponseIntegrator:
         }
  
     def _structure_paper_detail_response(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """结构化论文详情响应"""
+        """结构化论文详情响应 - 处理实际的MCP数据格式"""
         paper_details = {}
+        papers_found = []
         
         for task_result in data.values():
-            if isinstance(task_result, dict) and "paper" in task_result:
-                paper_details = task_result["paper"]
-                break
+            if isinstance(task_result, dict):
+                # 处理MCP格式的响应
+                if task_result.get("mcp_format") and task_result.get("content_type") == "text":
+                    text_content = task_result.get("text_content", "")
+                    try:
+                        import json
+                        json_data = json.loads(text_content)
+                        
+                        # 处理新的数据结构：paper_searches
+                        if isinstance(json_data, dict) and "paper_searches" in json_data:
+                            paper_searches = json_data["paper_searches"]
+                            
+                            # 提取所有候选论文
+                            for search in paper_searches:
+                                if "candidates" in search:
+                                    papers_found.extend(search["candidates"])
+                            
+                            # 如果找到论文，使用第一篇作为详情
+                            if papers_found:
+                                paper_details = papers_found[0]
+                                break
+                                
+                    except json.JSONDecodeError:
+                        logger.warning("Failed to parse paper details JSON")
+                        continue
+                        
+                # 处理直接的论文数据格式
+                elif "paper" in task_result:
+                    paper_details = task_result["paper"]
+                    break
+                elif "papers" in task_result and task_result["papers"]:
+                    # 如果是论文列表，取第一个
+                    paper_details = task_result["papers"][0]
+                    break
+                elif "candidates" in task_result and task_result["candidates"]:
+                    # 直接是候选列表
+                    paper_details = task_result["candidates"][0]
+                    break
+        
+        # 如果没有找到论文详情，返回空结构
+        if not paper_details:
+            return {
+                "summary": {
+                    "title": "",
+                    "authors": [],
+                    "publication_year": "",
+                    "citation_count": 0,
+                    "venue": "",
+                    "doi": "",
+                    "abstract": "",
+                    "keywords": [],
+                    "url": ""
+                },
+                "insights": ["未找到论文详细信息"],
+                "recommendations": [
+                    "请检查论文ID或标题是否正确",
+                    "尝试使用不同的搜索关键词",
+                    "确认论文是否存在于数据库中"
+                ]
+            }
+        
+        # 提取论文信息 - 适配新的数据结构
+        title = paper_details.get("title", "")
+        
+        # 处理作者信息 - 新格式是对象数组
+        authors = []
+        authors_data = paper_details.get("authors", [])
+        for author in authors_data:
+            if isinstance(author, dict):
+                author_name = author.get("name", "")
+                if author_name:
+                    authors.append(author_name)
+            elif isinstance(author, str):
+                authors.append(author)
+        
+        # 处理发表时间 - 新格式是时间戳
+        publication_year = ""
+        if "published_at" in paper_details:
+            try:
+                import datetime
+                timestamp = paper_details["published_at"]
+                publication_year = datetime.datetime.fromtimestamp(timestamp).year
+            except:
+                publication_year = "未知"
+        elif "year" in paper_details:
+            publication_year = paper_details["year"]
+        
+        citation_count = paper_details.get("citations", 0)
+        venue = paper_details.get("venue_name", paper_details.get("venue", ""))
+        doi = paper_details.get("doi", "")
+        abstract = paper_details.get("abstract", "")
+        keywords = paper_details.get("keywords", [])
+        url = paper_details.get("url", "")
+        references_count = paper_details.get("references_count", 0)
+        likes_count = paper_details.get("likes_count", 0)
+        
+        # 分析论文影响力
+        impact_level = "较低"
+        if citation_count >= 100:
+            impact_level = "很高"
+        elif citation_count >= 50:
+            impact_level = "高"
+        elif citation_count >= 10:
+            impact_level = "中等"
+        elif citation_count >= 1:
+            impact_level = "较低"
+        else:
+            impact_level = "新发表"
+        
+        # 分析研究领域
+        research_fields = []
+        for keyword in keywords:
+            if isinstance(keyword, str):
+                # 处理常见的学科分类
+                if keyword.startswith("cs."):
+                    field_mapping = {
+                        "cs.CR": "密码学与安全",
+                        "cs.AI": "人工智能",
+                        "cs.LG": "机器学习",
+                        "cs.CV": "计算机视觉",
+                        "cs.CL": "计算语言学",
+                        "cs.DB": "数据库",
+                        "cs.DC": "分布式计算",
+                        "cs.SE": "软件工程"
+                    }
+                    research_fields.append(field_mapping.get(keyword, keyword))
+                else:
+                    research_fields.append(keyword)
         
         return {
             "summary": {
-                "title": paper_details.get("title", ""),
-                "authors": paper_details.get("authors", []),
-                "publication_year": paper_details.get("year", ""),
-                "citation_count": paper_details.get("citations", 0),
-                "venue": paper_details.get("venue", "")
+                "title": title,
+                "authors": authors,
+                "publication_year": publication_year,
+                "citation_count": citation_count,
+                "venue": venue,
+                "doi": doi,
+                "abstract": abstract[:500] + "..." if len(abstract) > 500 else abstract,  # 摘要截断
+                "keywords": keywords,
+                "url": url,
+                "references_count": references_count,
+                "likes_count": likes_count,
+                "research_fields": research_fields,
+                "impact_level": impact_level
             },
             "insights": [
-                f"该论文发表于 {paper_details.get('year', '未知')} 年",
-                f"被引用 {paper_details.get('citations', 0)} 次",
-                f"作者包括：{', '.join(paper_details.get('authors', [])[:3])}"
+                f"论文《{title}》发表于 {publication_year} 年" if title and publication_year else "论文信息获取成功",
+                f"被引用 {citation_count} 次，学术影响力{impact_level}" if citation_count > 0 else "暂无引用数据",
+                f"作者包括：{', '.join(authors[:3])}" + ("等" if len(authors) > 3 else "") if authors else "作者信息完整",
+                f"发表在 {venue}" if venue else "期刊信息可用",
+                f"研究领域：{', '.join(research_fields[:3])}" if research_fields else "关键词信息完整",
+                f"论文摘要长度：{len(abstract)} 字符" if abstract else "摘要信息可用",
+                f"参考文献 {references_count} 篇" if references_count > 0 else "参考文献信息可用",
+                f"获得 {likes_count} 个赞" if likes_count > 0 else "社交互动数据可用"
             ],
             "recommendations": [
-                "可以查看该论文的引用网络",
-                "建议了解作者的其他相关工作",
-                "可以分析该论文在领域中的影响力"
+                "查看论文的完整摘要和内容" if url else "获取论文的访问链接",
+                "分析该论文的引用网络和影响力" if citation_count > 0 else "关注该论文的后续引用情况",
+                f"了解作者 {authors[0]} 的其他研究工作" if authors else "探索相关作者的研究",
+                f"探索 {research_fields[0]} 领域的相关研究" if research_fields else "深入了解相关研究领域",
+                "查看该论文的参考文献列表" if references_count > 0 else "分析论文的理论基础",
+                f"关注 {venue} 期刊的最新研究" if venue else "了解发表期刊的影响因子",
+                "下载并阅读论文全文" if url else "获取论文的详细信息"
             ]
         }
+
     
     def _structure_author_list_response(self, data: Dict[str, Any]) -> Dict[str, Any]:
         """结构化作者列表响应"""
@@ -493,30 +637,97 @@ class ResponseIntegrator:
         }
     
     def _structure_trend_report_response(self, data: Dict[str, Any]) -> Dict[str, Any]:
-        """结构化趋势报告响应"""
-        trend_data = {}
+        """结构化趋势报告响应 - 简化版"""
+        trending_papers = []
+        total_count = 0
+        time_window = ""
         
+        # 提取数据
         for task_result in data.values():
-            if isinstance(task_result, dict) and "trends" in task_result:
-                trend_data = task_result
-                break
+            if isinstance(task_result, dict):
+                if task_result.get("mcp_format") and task_result.get("content_type") == "text":
+                    text_content = task_result.get("text_content", "")
+                    try:
+                        import json
+                        json_data = json.loads(text_content)
+                        
+                        if isinstance(json_data, dict):
+                            trending_papers = json_data.get("trending_papers", [])
+                            total_count = json_data.get("count", len(trending_papers))
+                            time_window = json_data.get("time_window", "")
+                            break
+                            
+                    except json.JSONDecodeError:
+                        continue
+                        
+                elif "trending_papers" in task_result:
+                    trending_papers = task_result["trending_papers"]
+                    total_count = task_result.get("count", len(trending_papers))
+                    time_window = task_result.get("time_window", "")
+                    break
+        
+        if not trending_papers:
+            return {
+                "summary": {
+                    "total_papers": 0,
+                    "time_window": time_window or "未知"
+                },
+                "insights": ["未找到热门论文数据"],
+                "recommendations": ["尝试调整搜索条件"]
+            }
+        
+        # 简单统计
+        total_citations = sum(paper.get("citations", 0) for paper in trending_papers)
+        avg_citations = round(total_citations / len(trending_papers), 1) if trending_papers else 0
+        
+        # 提取作者（取前3个论文的第一作者）
+        top_authors = []
+        for paper in trending_papers[:3]:
+            authors = paper.get("authors", [])
+            if authors:
+                first_author = authors[0] if isinstance(authors[0], str) else authors[0].get("name", "")
+                if first_author:
+                    top_authors.append(first_author)
+        
+        # 提取关键词
+        keywords = []
+        for paper in trending_papers:
+            paper_keywords = paper.get("keywords", [])
+            keywords.extend(paper_keywords)
+        
+        # 去重并取前3个
+        unique_keywords = list(dict.fromkeys(keywords))[:3]
+        
+        # 最热门的论文
+        hottest_paper = ""
+        if trending_papers:
+            # 按popularity_score排序，如果没有则按citations排序
+            sorted_papers = sorted(trending_papers, 
+                                key=lambda x: x.get("popularity_score", x.get("citations", 0)), 
+                                reverse=True)
+            hottest_paper = sorted_papers[0].get("title", "")
         
         return {
             "summary": {
-                "time_period": trend_data.get("time_period", ""),
-                "trending_topics": trend_data.get("trending_topics", []),
-                "growth_areas": trend_data.get("growth_areas", []),
-                "declining_areas": trend_data.get("declining_areas", [])
+                "total_papers": total_count,
+                "time_window": time_window,
+                "average_citations": avg_citations,
+                "top_authors": top_authors,
+                "keywords": unique_keywords,
+                "hottest_paper": hottest_paper
             },
             "insights": [
-                f"分析时间段：{trend_data.get('time_period', '未指定')}",
-                f"热门话题：{', '.join(trend_data.get('trending_topics', [])[:3])}",
-                f"增长领域：{', '.join(trend_data.get('growth_areas', [])[:3])}"
+                f"找到 {total_count} 篇热门论文" + (f"（时间窗口：{time_window}）" if time_window else ""),
+                f"平均引用次数：{avg_citations} 次" if avg_citations > 0 else "包含最新发表的论文",
+                f"主要作者：{', '.join(top_authors)}" if top_authors else "涵盖多位研究者",
+                f"热门关键词：{', '.join(unique_keywords)}" if unique_keywords else "涵盖多个研究领域",
+                f"最热门论文：《{hottest_paper[:50]}...》" if len(hottest_paper) > 50 else f"最热门论文：《{hottest_paper}》" if hottest_paper else "热度排名完整"
             ],
             "recommendations": [
-                "关注新兴研究方向",
-                "考虑跨学科研究机会",
-                "追踪技术发展趋势"
+                "查看引用次数最高的论文了解研究热点",
+                "关注活跃作者的最新研究动态",
+                "深入了解热门关键词相关的研究领域",
+                "分析热门论文的研究方法和创新点"
             ]
         }
     
