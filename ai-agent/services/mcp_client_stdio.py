@@ -73,6 +73,9 @@ class MCPClient:
                 # 设置环境变量
                 env = os.environ.copy()
                 env['PYTHONDONTWRITEBYTECODE'] = '1'
+                env['PYTHONUNBUFFERED'] = '1'
+
+                # 移除可能影响MCP进程的调试变量
                 env.pop('DEBUGPY_LAUNCHER_PORT', None)
                 env.pop('PYDEVD_LOAD_VALUES_ASYNC', None)
                 
@@ -247,7 +250,8 @@ class MCPClient:
                             
                 except json.JSONDecodeError:
                     # 不是JSON，可能是日志，继续读取
-                    logger.debug("Non-JSON line (likely log)")
+                    logger.debug("Skipping non-JSON line", 
+                            line_preview=line_str[:50])
                 
                 # 每读取20行输出一次状态
                 if len(collected_lines) % 20 == 0:
@@ -332,7 +336,15 @@ class MCPClient:
             # 读取响应 - 使用更合理的超时时间
             try:
                 # 对于初始化等重要操作使用更长超时，普通操作使用较短超时
-                timeout = 30.0 if method in ["initialize", "tools/list"] else min(mcp_config.timeout, 30.0)
+                # timeout = 30.0 if method in ["initialize", "tools/list"] else min(mcp_config.timeout, 30.0)
+                
+                # 对于初始化等重要操作使用更长超时
+                if method in ["initialize", "tools/list"]:
+                    timeout = 45.0  # 增加初始化超时时间
+                elif method == "tools/call":
+                    timeout = min(mcp_config.timeout * 2, 60.0)  # 工具调用使用较长超时
+                else:
+                    timeout = min(mcp_config.timeout, 30.0)
                 
                 response = await asyncio.wait_for(
                     self._read_json_response(),

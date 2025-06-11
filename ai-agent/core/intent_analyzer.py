@@ -199,8 +199,8 @@ class IntentAnalyzer:
         # 定义需要必要参数的意图类型
         intents_requiring_params = {
             IntentType.SEARCH_PAPERS: ["query"],
-            IntentType.GET_PAPER_DETAILS: ["paper_id", "title", "query"],  # 至少需要其中一个
-            IntentType.GET_PAPER_CITATIONS: ["paper_id", "title", "query"],
+            IntentType.GET_PAPER_DETAILS: ["paper_id","paper_title", "title", "query"],  # 至少需要其中一个
+            IntentType.GET_PAPER_CITATIONS: ["paper_id","paper_title", "title", "query"],
             IntentType.SEARCH_AUTHORS: ["query", "author_name"],
             IntentType.GET_AUTHOR_DETAILS: ["query", "author_name", "author_id"],
             IntentType.GET_AUTHOR_PAPERS: ["author_name", "author_id"],
