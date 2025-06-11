@@ -7,7 +7,7 @@ from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
 # 导入统一的API路由
-from api.routes import api_router
+from api.routes import api_v1_router, api_v2_router
 from api.middleware.error_handler import add_error_handlers
 from api.middleware.logging import add_logging_middleware
 
@@ -96,7 +96,8 @@ def create_app() -> FastAPI:
     add_logging_middleware(app)
     
     # 注册API路由 - 现在只需要一行！
-    app.include_router(api_router, prefix="/api/v1")
+    app.include_router(api_v1_router, prefix="/api/v1")
+    app.include_router(api_v2_router, prefix="/api/v2")
     
     # 调试：打印所有路由
     if settings.debug:
@@ -116,7 +117,8 @@ def create_app() -> FastAPI:
             "version": settings.app_version,
             "status": "running",
             "docs_url": "/docs" if settings.debug else "disabled",
-            "api_prefix": "/api/v1"
+            "api_versions": ["v1", "v2"],
+            "api_prefixes": ["/api/v1", "/api/v2"]
         }
     
     # 添加API信息路径
@@ -126,11 +128,31 @@ def create_app() -> FastAPI:
         return {
             "service": settings.app_name,
             "version": settings.app_version,
-            "api_version": "v1",
+            "supported_versions": ["v1", "v2"],
             "endpoints": {
-                "health": "/api/v1/health",
-                "chat": "/api/v1/chat", 
-                "conversations": "/api/v1/conversations"
+                "v1": {
+                    "health": "/api/v1/health",
+                    "chat": "/api/v1/chat", 
+                    "conversations": "/api/v1/conversations"
+                },
+                "v2": {
+                    "health": "/api/v2/health",
+                    "chat": "/api/v2/chat", 
+                    "conversations": "/api/v2/conversations"
+                }
+            }
+        }
+    
+    @app.get("/api/v2", tags=["v2"])
+    async def api_v2_info():
+        """API V2 信息"""
+        return {
+            "version": "v2",
+            "status": "beta",
+            "endpoints": {
+                "health": "/api/v2/health",
+                "chat": "/api/v2/chat", 
+                "conversations": "/api/v2/conversations"
             }
         }
     
