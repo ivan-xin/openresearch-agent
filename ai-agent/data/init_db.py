@@ -1,5 +1,5 @@
 """
-数据库初始化脚本
+Database initialization script
 """
 import asyncio
 from data.database import db_manager
@@ -8,14 +8,14 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 async def init_database():
-    """初始化数据库"""
+    """Initialize database"""
     try:
         logger.info("Starting database initialization")
         
-        # 初始化连接池
+        # Initialize connection pool
         await db_manager.initialize()
         
-        # 创建表
+        # Create tables
         await db_manager.create_tables()
         
         logger.info("Database initialization completed successfully")

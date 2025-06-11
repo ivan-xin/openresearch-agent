@@ -1,19 +1,19 @@
 """
-学术研究相关结果模型
+Research-related result models
 """
 from pydantic import BaseModel, Field
 from typing import Dict, Any, List, Optional
 
 class PaperInfo(BaseModel):
-    """论文信息模型"""
-    id: str = Field(..., description="论文ID")
-    title: str = Field(..., description="论文标题")
-    authors: List[str] = Field(..., description="作者列表")
-    year: Optional[int] = Field(None, description="发表年份")
-    venue: Optional[str] = Field(None, description="发表会议/期刊")
-    citations: Optional[int] = Field(None, description="引用次数")
-    abstract: Optional[str] = Field(None, description="摘要")
-    url: Optional[str] = Field(None, description="论文链接")
+    """Paper Information Model"""
+    id: str = Field(..., description="Paper ID")
+    title: str = Field(..., description="Paper Title")
+    authors: List[str] = Field(..., description="Author List")
+    year: Optional[int] = Field(None, description="Publication Year")
+    venue: Optional[str] = Field(None, description="Conference/Journal")
+    citations: Optional[int] = Field(None, description="Citation Count")
+    abstract: Optional[str] = Field(None, description="Abstract")
+    url: Optional[str] = Field(None, description="Paper URL")
     
     model_config = {
         "json_schema_extra": {
@@ -31,14 +31,14 @@ class PaperInfo(BaseModel):
     }
 
 class AuthorInfo(BaseModel):
-    """作者信息模型"""
-    id: str = Field(..., description="作者ID")
-    name: str = Field(..., description="作者姓名")
-    affiliation: Optional[str] = Field(None, description="所属机构")
-    h_index: Optional[int] = Field(None, description="H指数")
-    paper_count: Optional[int] = Field(None, description="论文数量")
-    citation_count: Optional[int] = Field(None, description="总引用数")
-    research_interests: List[str] = Field(default_factory=list, description="研究兴趣")
+    """Author Information Model"""
+    id: str = Field(..., description="Author ID")
+    name: str = Field(..., description="Author Name")
+    affiliation: Optional[str] = Field(None, description="Affiliation")
+    h_index: Optional[int] = Field(None, description="H-index")
+    paper_count: Optional[int] = Field(None, description="Number of Papers")
+    citation_count: Optional[int] = Field(None, description="Total Citations")
+    research_interests: List[str] = Field(default_factory=list, description="Research Interests")
     
     model_config = {
         "json_schema_extra": {
@@ -55,13 +55,13 @@ class AuthorInfo(BaseModel):
     }
 
 class SearchResult(BaseModel):
-    """搜索结果模型"""
-    query: str = Field(..., description="搜索查询")
-    total_count: int = Field(..., description="总结果数")
-    papers: List[PaperInfo] = Field(default_factory=list, description="论文列表")
-    authors: List[AuthorInfo] = Field(default_factory=list, description="作者列表")
-    search_time: float = Field(..., description="搜索耗时")
-    filters: Dict[str, Any] = Field(default_factory=dict, description="应用的过滤器")
+    """Search Result Model"""
+    query: str = Field(..., description="Search Query")
+    total_count: int = Field(..., description="Total Result Count")
+    papers: List[PaperInfo] = Field(default_factory=list, description="Paper List")
+    authors: List[AuthorInfo] = Field(default_factory=list, description="Author List")
+    search_time: float = Field(..., description="Search Time")
+    filters: Dict[str, Any] = Field(default_factory=dict, description="Applied Filters")
     
     model_config = {
         "json_schema_extra": {
@@ -80,11 +80,11 @@ class SearchResult(BaseModel):
     }
 
 class NetworkNode(BaseModel):
-    """网络节点模型"""
-    id: str = Field(..., description="节点ID")
-    label: str = Field(..., description="节点标签")
-    type: str = Field(..., description="节点类型")
-    properties: Dict[str, Any] = Field(default_factory=dict, description="节点属性")
+    """Network Node Model"""
+    id: str = Field(..., description="Node ID")
+    label: str = Field(..., description="Node Label")
+    type: str = Field(..., description="Node Type")
+    properties: Dict[str, Any] = Field(default_factory=dict, description="Node Properties")
     
     model_config = {
         "json_schema_extra": {
@@ -102,12 +102,12 @@ class NetworkNode(BaseModel):
     }
 
 class NetworkEdge(BaseModel):
-    """网络边模型"""
-    source: str = Field(..., description="源节点ID")
-    target: str = Field(..., description="目标节点ID")
-    type: str = Field(..., description="边类型")
-    weight: Optional[float] = Field(None, description="边权重")
-    properties: Dict[str, Any] = Field(default_factory=dict, description="边属性")
+    """Network Edge Model"""
+    source: str = Field(..., description="Source Node ID")
+    target: str = Field(..., description="Target Node ID")
+    type: str = Field(..., description="Edge Type")
+    weight: Optional[float] = Field(None, description="Edge Weight")
+    properties: Dict[str, Any] = Field(default_factory=dict, description="Edge Properties")
     
     model_config = {
         "json_schema_extra": {
@@ -124,11 +124,11 @@ class NetworkEdge(BaseModel):
     }
 
 class NetworkAnalysisResult(BaseModel):
-    """网络分析结果模型"""
-    nodes: List[NetworkNode] = Field(..., description="网络节点")
-    edges: List[NetworkEdge] = Field(..., description="网络边")
-    metrics: Dict[str, Any] = Field(..., description="网络指标")
-    analysis_type: str = Field(..., description="分析类型")
+    """Network Analysis Result Model"""
+    nodes: List[NetworkNode] = Field(..., description="Network Nodes")
+    edges: List[NetworkEdge] = Field(..., description="Network Edges")
+    metrics: Dict[str, Any] = Field(..., description="Network Metrics")
+    analysis_type: str = Field(..., description="Analysis Type")
     
     model_config = {
         "json_schema_extra": {
@@ -147,10 +147,10 @@ class NetworkAnalysisResult(BaseModel):
     }
 
 class TrendData(BaseModel):
-    """趋势数据模型"""
-    period: str = Field(..., description="时间周期")
-    value: float = Field(..., description="数值")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="元数据")
+    """Trend Data Model"""
+    period: str = Field(..., description="Time Period")
+    value: float = Field(..., description="Value")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Metadata")
     
     model_config = {
         "json_schema_extra": {
@@ -166,12 +166,12 @@ class TrendData(BaseModel):
     }
 
 class TrendAnalysisResult(BaseModel):
-    """趋势分析结果模型"""
-    topic: str = Field(..., description="分析主题")
-    time_range: Dict[str, str] = Field(..., description="时间范围")
-    trends: List[TrendData] = Field(..., description="趋势数据")
-    analysis_type: str = Field(..., description="分析类型")
-    insights: List[str] = Field(default_factory=list, description="分析洞察")
+    """Trend Analysis Result Model"""
+    topic: str = Field(..., description="Analysis Topic")
+    time_range: Dict[str, str] = Field(..., description="Time Range")
+    trends: List[TrendData] = Field(..., description="Trend Data")
+    analysis_type: str = Field(..., description="Analysis Type")
+    insights: List[str] = Field(default_factory=list, description="Analysis Insights")
     
     model_config = {
         "json_schema_extra": {
@@ -181,8 +181,8 @@ class TrendAnalysisResult(BaseModel):
                 "trends": [],
                 "analysis_type": "research_trends",
                 "insights": [
-                    "Transformer论文数量在2020年后快速增长",
-                    "注意力机制成为研究热点"
+                    "Rapid growth in Transformer papers after 2020",
+                    "Attention mechanism becomes a research hotspot"
                 ]
             }
         }

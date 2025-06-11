@@ -1,5 +1,5 @@
 """
-MCP客户端服务 - stdio协议版本 - 简化版
+MCP Client Service - stdio protocol version - simplified version
 """
 import asyncio
 import json
@@ -15,7 +15,7 @@ from models.task import Task, TaskResult, TaskStatus
 logger = structlog.get_logger()
 
 class MCPClient:
-    """MCP客户端 - stdio协议"""
+    """MCP Client - stdio protocol"""
     
     def __init__(self):
         self.process: Optional[asyncio.subprocess.Process] = None
@@ -23,33 +23,33 @@ class MCPClient:
         self._tools_loaded = False
         self._request_id = 0
         self._initialized = False
-        self._lock = asyncio.Lock()  # 添加锁防止并发问题
+        self._lock = asyncio.Lock()  # Add lock to prevent concurrency issues
     
     async def __aenter__(self):
-        """异步上下文管理器入口"""
+        """Async context manager entry"""
         await self.initialize()
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """异步上下文管理器出口"""
+        """Async context manager exit"""
         await self.cleanup()
     
     def _get_next_request_id(self) -> int:
-        """获取下一个请求ID"""
+        """Get next request ID"""
         self._request_id += 1
         return self._request_id
     
     async def initialize(self):
-        """初始化MCP客户端"""
+        """Initialize MCP client"""
         async with self._lock:
             if self._initialized:
                 return
                 
             try:
-                # 使用带日志重定向的命令
+                # Use command with log redirection
                 # if mcp_config.enable_debug_log:
                 #     command = mcp_config.server_command_with_log_redirect
-                #     # 确保日志目录存在
+                #     # Ensure log directory exists
                 #     log_dir = os.path.dirname(mcp_config.debug_log_path)
                 #     os.makedirs(log_dir, exist_ok=True)
                 #     logger.info("Using log redirection", 
@@ -62,39 +62,39 @@ class MCPClient:
                         cwd=mcp_config.mcp_cwd,
                         debug_log_enabled=mcp_config.enable_debug_log)
                 
-                # 检查工作目录是否存在
+                # Check if working directory exists
                 if not os.path.exists(mcp_config.mcp_cwd):
                     raise Exception(f"MCP server directory not found: {mcp_config.mcp_cwd}")
                 
-                # 检查命令文件是否存在
+                # Check if command file exists
                 if not os.path.exists(mcp_config.mcp_command):
                     raise Exception(f"MCP command not found: {mcp_config.mcp_command}")
                 
-                # 设置环境变量
+                # Set environment variables
                 env = os.environ.copy()
                 env['PYTHONDONTWRITEBYTECODE'] = '1'
                 env['PYTHONUNBUFFERED'] = '1'
 
-                # 移除可能影响MCP进程的调试变量
+                # Remove debug variables that may affect MCP process
                 env.pop('DEBUGPY_LAUNCHER_PORT', None)
                 env.pop('PYDEVD_LOAD_VALUES_ASYNC', None)
                 
-                # 启动MCP服务器进程
+                # Start MCP server process
                 self.process = await asyncio.create_subprocess_exec(
                     *command,
                     stdin=asyncio.subprocess.PIPE,
                     stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,  # 保留用于错误处理
+                    stderr=asyncio.subprocess.PIPE,  # Keep for error handling
                     cwd=mcp_config.mcp_cwd,
                     env=env
                 )
                 
                 logger.info("Process started", pid=self.process.pid)
                 
-                # 等待进程启动
+                # Wait for process to start
                 await asyncio.sleep(1)
                 
-                # 检查进程是否正常启动
+                # Check if process started normally
                 if self.process.returncode is not None:
                     stderr_output = ""
                     if self.process.stderr:
@@ -112,10 +112,10 @@ class MCPClient:
                     
                     raise Exception(f"MCP server process failed to start: {stderr_output}")
                 
-                # 发送初始化请求
+                # Send initialization request
                 await self._send_initialize()
                 
-                # 加载可用工具
+                # Load available tools
                 await self._load_available_tools()
                 
                 self._initialized = True
@@ -134,7 +134,7 @@ class MCPClient:
 
     
     async def _read_stderr(self) -> str:
-        """读取stderr输出"""
+        """Read stderr output"""
         if not self.process or not self.process.stderr:
             return ""
         
@@ -147,24 +147,24 @@ class MCPClient:
             return ""
         
     async def _read_json_response(self) -> Dict[str, Any]:
-        """读取JSON响应，过滤掉日志行"""
+        """Read JSON response, filter out log lines"""
         if not self.process or not self.process.stdout:
             raise Exception("Process not available")
         
-        # 首先检查进程状态
+        # First check process status
         if self.process.returncode is not None:
             logger.error("Process already terminated", return_code=self.process.returncode)
             raise Exception(f"MCP server process terminated: {self.process.returncode}")
         
         collected_lines = []
         start_time = asyncio.get_event_loop().time()
-        max_wait_time = min(mcp_config.timeout, 60.0)  # 最多等待60秒
+        max_wait_time = min(mcp_config.timeout, 60.0)  # Wait up to 60 seconds
         
         logger.debug("Starting to read JSON response", max_wait_time=max_wait_time)
         
-        # 简化逻辑：一直循环直到找到响应或超时
+        # Simplified logic: loop until response is found or timeout
         while True:
-            # 检查总时间是否超时
+            # Check if total time exceeded
             elapsed_time = asyncio.get_event_loop().time() - start_time
             if elapsed_time >= max_wait_time:
                 logger.error("Total timeout exceeded while waiting for JSON-RPC response",
@@ -174,9 +174,9 @@ class MCPClient:
                 break
             
             try:
-                # 剩余时间
+                # Remaining time
                 remaining_time = max_wait_time - elapsed_time
-                # 单次读取超时：最多5秒，但不超过剩余时间
+                # Single read timeout: max 5 seconds but not exceeding remaining time
                 line_timeout = min(5.0, remaining_time)
                 
                 if line_timeout <= 0:
@@ -192,9 +192,9 @@ class MCPClient:
                     timeout=line_timeout
                 )
                 
-                # 检查是否有数据
+                # Check if there is data
                 if not line:
-                    # 没有数据，检查进程状态
+                    # No data, check process status
                     if self.process.returncode is not None:
                         stderr_output = await self._read_stderr()
                         logger.error("MCP server process terminated", 
@@ -202,58 +202,58 @@ class MCPClient:
                             stderr=stderr_output)
                         raise Exception(f"MCP server process terminated: {self.process.returncode}")
                     else:
-                        # 进程还活着但没有数据，可能是暂时的
+                        # Process is alive but no data, might be temporary
                         logger.debug("No data available, continuing...")
-                        await asyncio.sleep(0.1)  # 短暂等待
+                        await asyncio.sleep(0.1)  # Brief wait
                         continue
                 
                 line_str = line.decode().strip()
                 
-                # 跳过空行
+                # Skip empty lines
                 if not line_str:
                     continue
                 
-                # 记录非空行
+                # Record non-empty lines
                 collected_lines.append(line_str)
                 logger.debug("Received line", 
                             line_preview=line_str[:100],
                             total_lines=len(collected_lines))
                 
-                # 尝试解析JSON
+                # Try to parse JSON
                 try:
                     data = json.loads(line_str)
                     logger.debug("Successfully parsed JSON", data_type=type(data).__name__)
                     
-                    # 检查是否是有效的响应
+                    # Check if it's a valid response
                     if isinstance(data, dict):
-                        # 标准JSON-RPC响应
+                        # Standard JSON-RPC response
                         if data.get("jsonrpc") == "2.0":
                             logger.info("Found JSON-RPC response", 
                                     response_id=data.get("id"),
                                     elapsed_time=elapsed_time)
-                            return data  # 找到有效响应，退出循环
+                            return data  # Found valid response, exit loop
                         
-                        # MCP工具响应格式
+                        # MCP tool response format
                         elif ("content" in data and isinstance(data.get("content"), list)) or \
                             ("isError" in data) or \
                             ("result" in data and "error" not in data and "jsonrpc" not in data):
                             logger.info("Found MCP response, wrapping as JSON-RPC",
                                     elapsed_time=elapsed_time)
-                            return {  # 找到有效响应，退出循环
+                            return {  # Found valid response, exit loop
                                 "jsonrpc": "2.0",
                                 "id": getattr(self, '_current_request_id', 1),
                                 "result": data
                             }
                         else:
-                            # 是JSON但不是预期格式，继续读取
+                            # Is JSON but not expected format, continue reading
                             logger.debug("JSON found but not expected format")
                             
                 except json.JSONDecodeError:
-                    # 不是JSON，可能是日志，继续读取
+                    # Not JSON, might be log, continue reading
                     logger.debug("Skipping non-JSON line", 
                             line_preview=line_str[:50])
                 
-                # 每读取20行输出一次状态
+                # Output status every 20 lines
                 if len(collected_lines) % 20 == 0:
                     logger.info("Still reading lines", 
                             lines_read=len(collected_lines),
@@ -264,21 +264,21 @@ class MCPClient:
                             timeout=line_timeout,
                             elapsed_time=elapsed_time)
                 
-                # 检查进程状态
+                # Check process status
                 if self.process.returncode is not None:
                     stderr_output = await self._read_stderr()
                     logger.error("Process died during timeout", 
                                 return_code=self.process.returncode)
                     raise Exception(f"MCP server process died: {self.process.returncode}")
                 
-                # 超时但进程还活着，继续尝试
+                # Timeout but process is alive, continue trying
                 continue
             
             except Exception as e:
                 logger.error("Unexpected error while reading", error=str(e))
                 break
         
-        # 如果到这里，说明超时或出错了
+        # If we get here, timeout or error occurred
         stderr_output = await self._read_stderr()
         elapsed_time = asyncio.get_event_loop().time() - start_time
         
@@ -287,7 +287,7 @@ class MCPClient:
                     lines_collected=len(collected_lines),
                     process_alive=self.process.returncode is None)
         
-        # 输出调试信息
+        # Output debug information
         if collected_lines:
             logger.error("Sample collected lines",
                         first_3=collected_lines[:3],
@@ -302,7 +302,7 @@ class MCPClient:
 
     
     async def _send_request(self, method: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
-        """发送JSON-RPC请求"""
+        """Send JSON-RPC request"""
         if not self.process or not self.process.stdin:
             raise RuntimeError("MCP server process is not running")
         
@@ -315,7 +315,7 @@ class MCPClient:
         }
         
         try:
-            # 发送请求
+            # Send request
             request_line = json.dumps(request) + "\n"
             logger.debug("Sending MCP request", 
                         method=method, 
@@ -325,7 +325,7 @@ class MCPClient:
             self.process.stdin.write(request_line.encode())
             await self.process.stdin.drain()
             
-            # 检查进程状态
+            # Check process status
             if self.process.returncode is not None:
                 stderr_output = await self._read_stderr()
                 logger.error("Process died before response", 
@@ -333,16 +333,13 @@ class MCPClient:
                             stderr=stderr_output)
                 raise Exception(f"MCP server process died: {self.process.returncode}")
             
-            # 读取响应 - 使用更合理的超时时间
+            # Read response - use more reasonable timeout
             try:
-                # 对于初始化等重要操作使用更长超时，普通操作使用较短超时
-                # timeout = 30.0 if method in ["initialize", "tools/list"] else min(mcp_config.timeout, 30.0)
-                
-                # 对于初始化等重要操作使用更长超时
+                # Use longer timeout for initialization and important operations
                 if method in ["initialize", "tools/list"]:
-                    timeout = 45.0  # 增加初始化超时时间
+                    timeout = 45.0  # Increase initialization timeout
                 elif method == "tools/call":
-                    timeout = min(mcp_config.timeout * 2, 60.0)  # 工具调用使用较长超时
+                    timeout = min(mcp_config.timeout * 2, 60.0)  # Longer timeout for tool calls
                 else:
                     timeout = min(mcp_config.timeout, 30.0)
                 
@@ -351,7 +348,7 @@ class MCPClient:
                     timeout=timeout
                 )
             except asyncio.TimeoutError:
-                # 增强超时错误处理
+                # Enhanced timeout error handling
                 stderr_output = await self._read_stderr()
                 process_alive = self.process.returncode is None
                 
@@ -362,13 +359,13 @@ class MCPClient:
                             stderr=stderr_output[:500] if stderr_output else None,
                             request_id=request_id)
                 
-                # 如果进程死了，抛出更具体的错误
+                # Throw more specific error if process died
                 if not process_alive:
                     raise Exception(f"MCP server process died during {method} request (return code: {self.process.returncode})")
                 else:
                     raise Exception(f"MCP server response timeout for method: {method} (timeout: {timeout}s)")
             
-            # 检查错误
+            # Check for errors
             if "error" in response:
                 error = response["error"]
                 logger.error("MCP server returned error", error=error, method=method)
@@ -385,7 +382,7 @@ class MCPClient:
 
     
     async def _send_notification(self, method: str, params: Dict[str, Any] = None):
-        """发送通知（无响应）"""
+        """Send notification (no response)"""
         if not self.process or not self.process.stdin:
             raise RuntimeError("MCP server process is not running")
         
@@ -407,7 +404,7 @@ class MCPClient:
             raise
     
     async def _send_initialize(self):
-        """发送初始化请求"""
+        """Send initialization request"""
         params = {
             "protocolVersion": "2024-11-05",
             "capabilities": {
@@ -422,11 +419,11 @@ class MCPClient:
         result = await self._send_request("initialize", params)
         logger.info("MCP server initialized", capabilities=result.get("capabilities", {}))
         
-        # 发送初始化完成通知
+        # Send initialization complete notification
         await self._send_notification("notifications/initialized")
     
     async def _load_available_tools(self):
-        """加载可用工具列表"""
+        """Load available tools list"""
         try:
             result = await self._send_request("tools/list")
             self.available_tools = result.get("tools", [])
@@ -439,13 +436,13 @@ class MCPClient:
                     
         except Exception as e:
             logger.error("Error loading available tools", error=str(e))
-            # 设置默认工具列表作为备选
+            # Set default tools list as fallback
             self.available_tools = []
             self._tools_loaded = True
             logger.warning("Using empty tools list due to error")
     
     async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """调用MCP工具 - 直接调用MCP server"""
+        """Call MCP tool - directly call MCP server"""
         if not self._initialized:
             await self.initialize()
         
@@ -454,13 +451,13 @@ class MCPClient:
                    arguments=arguments)
         
         try:
-            # 构建MCP工具调用参数
+            # Build MCP tool call parameters
             params = {
                 "name": tool_name,
                 "arguments": arguments,
             }
             
-            # 发送工具调用请求到MCP server
+            # Send tool call request to MCP server
             result = await self._send_request("tools/call", params)
             
             logger.info("MCP tool call successful", 
@@ -476,9 +473,9 @@ class MCPClient:
                         error=str(e))
             raise
     
-    # 便捷方法（可选，为了向后兼容和易用性）
+    # Convenience methods (optional, for backward compatibility and ease of use)
     async def search_papers(self, query: str, limit: int = 10, fields: List[str] = None) -> Dict[str, Any]:
-        """搜索论文 - 便捷方法"""
+        """Search papers - convenience method"""
         arguments = {
             "query": query,
             "limit": limit
@@ -489,22 +486,22 @@ class MCPClient:
         return await self.call_tool("search_papers", arguments)
     
     async def get_paper_details(self, paper_id: str) -> Dict[str, Any]:
-        """获取论文详情 - 便捷方法"""
+        """Get paper details - convenience method"""
         return await self.call_tool("get_paper_details", {"paper_id": paper_id})
     
     async def search_authors(self, query: str, limit: int = 10) -> Dict[str, Any]:
-        """搜索作者 - 便捷方法"""
-        # 根据 MCP 服务器的实际期望，可能需要同时发送 query 和 name 参数
+        """Search authors - convenience method"""
+        # Depending on MCP server's expectations, may need to send both query and name parameters
         arguments = {
-            "query": query,      # 主要参数
-            "name": query,       # 备用参数，以防服务器期望这个字段
+            "query": query,      # Main parameter
+            "name": query,       # Backup parameter, in case server expects this field
             "limit": limit,
             "include_coauthors": True
         }
         
         result = await self.call_tool("search_authors", arguments)
         
-        # 如果是 MCP 格式，提取实际数据
+        # If in MCP format, extract actual data
         if result.get("mcp_format") and "authors" in result:
             return {
                 "authors": result["authors"],
@@ -516,24 +513,24 @@ class MCPClient:
         return result
     
     async def get_author_details(self, author_id: str) -> Dict[str, Any]:
-        """获取作者详情 - 便捷方法"""
+        """Get author details - convenience method"""
         return await self.search_authors(query=author_id, limit=1)
     
     async def get_citation_network(self, paper_id: str, depth: int = 2) -> Dict[str, Any]:
-        """获取引用网络 - 便捷方法"""
+        """Get citation network - convenience method"""
         return await self.call_tool("get_citation_network", {"paper_id": paper_id, "depth": depth})
     
     async def get_collaboration_network(self, author_id: str, depth: int = 2) -> Dict[str, Any]:
-        """获取合作网络 - 便捷方法"""
+        """Get collaboration network - convenience method"""
         return await self.call_tool("get_collaboration_network", {"author_id": author_id, "depth": depth})
     
     async def get_trending_papers(self, field: str = "", time_range: str = "1year") -> Dict[str, Any]:
-        """获取热门论文 - 便捷方法"""
+        """Get trending papers - convenience method"""
         return await self.call_tool("get_trending_papers", {"field": field, "time_range": time_range})
     
-    # 重试机制
+    # Retry mechanism
     async def call_tool_with_retry(self, tool_name: str, arguments: Dict[str, Any], max_retries: int = 3) -> Dict[str, Any]:
-        """带重试机制的工具调用"""
+        """Tool call with retry mechanism"""
         last_error = None
         
         for attempt in range(max_retries):
@@ -560,12 +557,12 @@ class MCPClient:
                              error=str(e))
                 
                 if attempt < max_retries - 1:
-                    # 等待一段时间后重试
-                    wait_time = 2 ** attempt  # 指数退避
+                    # Wait before retrying
+                    wait_time = 2 ** attempt  # Exponential backoff
                     logger.info("Retrying after delay", delay=wait_time)
                     await asyncio.sleep(wait_time)
                     
-                    # 如果进程死了，尝试重新初始化
+                    # If process died, try to reinitialize
                     if self.process and self.process.returncode is not None:
                         logger.warning("Process died, reinitializing...")
                         await self.cleanup()
@@ -577,19 +574,19 @@ class MCPClient:
         raise last_error
     
     def get_available_tools(self) -> List[Dict[str, Any]]:
-        """获取可用工具列表"""
+        """Get available tools list"""
         return self.available_tools.copy()
     
     async def health_check(self) -> Dict[str, Any]:
-        """健康检查"""
+        """Health check"""
         try:
             if not self._initialized:
                 await self.initialize()
             
-            # 检查进程状态
+            # Check process status
             process_running = self.process is not None and self.process.returncode is None
             
-            # 尝试获取工具列表
+            # Try to get tools list
             tools_accessible = False
             try:
                 await self._send_request("tools/list")
@@ -617,15 +614,15 @@ class MCPClient:
             }
     
     async def cleanup(self):
-        """清理资源"""
+        """Clean up resources"""
         try:
             logger.info("Cleaning up MCP client")
             
             if self.process:
-                # 尝试优雅关闭
+                # Try graceful shutdown
                 if self.process.returncode is None:
                     try:
-                        # 发送关闭通知
+                        # Send shutdown notification
                         await asyncio.wait_for(
                             self._send_notification("notifications/shutdown"),
                             timeout=2.0
@@ -633,12 +630,12 @@ class MCPClient:
                     except:
                         pass
                     
-                    # 关闭stdin
+                    # Close stdin
                     if self.process.stdin:
                         self.process.stdin.close()
                         await self.process.stdin.wait_closed()
                     
-                    # 等待进程结束
+                    # Wait for process to end
                     try:
                         await asyncio.wait_for(self.process.wait(), timeout=5.0)
                     except asyncio.TimeoutError:
@@ -655,7 +652,6 @@ class MCPClient:
             
         except Exception as e:
             logger.error("Error during MCP client cleanup", error=str(e))
-
-# 创建全局实例
+            
 mcp_client_stdio = MCPClient()
 

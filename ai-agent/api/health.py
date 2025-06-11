@@ -1,5 +1,5 @@
 """
-健康检查API路由 - MVP版本
+Health check API routes - MVP version
 """
 from fastapi import APIRouter, HTTPException, Request
 from typing import Dict, Any
@@ -15,7 +15,7 @@ router = APIRouter()
 
 @router.get("/health")
 async def health_check():
-    """基础健康检查"""
+    """Basic health check"""
     return {
         "status": "healthy", 
         "service": "ai-agent",
@@ -25,7 +25,7 @@ async def health_check():
 
 @router.get("/health/detailed")
 async def detailed_health_check(req: Request):
-    """详细健康检查"""
+    """Detailed health check"""
     start_time = time.time()
     health_details = {
         "status": "healthy",
@@ -36,19 +36,19 @@ async def detailed_health_check(req: Request):
     }
     
     try:
-        # 检查Agent状态
+        # Check Agent status
         agent_status = await _check_agent_health(req)
         health_details["checks"]["agent"] = agent_status
         
-        # 检查ConversationService状态
+        # Check ConversationService status
         conversation_status = await _check_conversation_service_health()
         health_details["checks"]["conversation_service"] = conversation_status
         
-        # 检查内存使用情况
+        # Check memory usage
         memory_status = await _check_memory_health()
         health_details["checks"]["memory"] = memory_status
         
-        # 计算总体健康状态
+        # Calculate overall health status
         all_healthy = all(
             check.get("status") == "healthy" 
             for check in health_details["checks"].values()
@@ -57,7 +57,7 @@ async def detailed_health_check(req: Request):
         if not all_healthy:
             health_details["status"] = "degraded"
         
-        # 添加响应时间
+        # Add response time
         health_details["response_time_ms"] = round((time.time() - start_time) * 1000, 2)
         
         return health_details
@@ -75,15 +75,15 @@ async def detailed_health_check(req: Request):
 
 @router.get("/health/readiness")
 async def readiness_check(req: Request):
-    """就绪状态检查 - 用于K8s readiness probe"""
+    """Readiness check - for K8s readiness probe"""
     try:
-        # 检查关键组件是否就绪
+        # Check if key components are ready
         checks = []
         
-        # 检查Agent是否可用
+        # Check if Agent is available
         if hasattr(req.app.state, 'agent') and req.app.state.agent:
             try:
-                # 简单的agent调用测试
+                # Simple agent call test
                 await asyncio.wait_for(
                     _test_agent_basic_function(req.app.state.agent), 
                     timeout=5.0
@@ -95,7 +95,7 @@ async def readiness_check(req: Request):
         else:
             checks.append(("agent", False))
         
-        # 检查ConversationService是否可用
+        # Check if ConversationService is available
         try:
             await asyncio.wait_for(
                 _test_conversation_service_basic_function(),
@@ -106,7 +106,7 @@ async def readiness_check(req: Request):
             logger.warning("ConversationService readiness check failed", error=str(e))
             checks.append(("conversation_service", False))
         
-        # 所有关键组件都就绪才返回成功
+        # Return success only if all key components are ready
         all_ready = all(status for _, status in checks)
         
         if all_ready:
@@ -140,9 +140,9 @@ async def readiness_check(req: Request):
 
 @router.get("/health/liveness")
 async def liveness_check():
-    """存活状态检查 - 用于K8s liveness probe"""
+    """Liveness check - for K8s liveness probe"""
     try:
-        # 简单的存活检查，主要确保进程还在运行
+        # Simple liveness check to ensure process is running
         current_time = datetime.now()
         
         return {
@@ -163,9 +163,9 @@ async def liveness_check():
             }
         )
 
-# 辅助函数
+# Helper functions
 async def _check_agent_health(req: Request) -> Dict[str, Any]:
-    """检查Agent健康状态"""
+    """Check Agent health status"""
     try:
         if not hasattr(req.app.state, 'agent') or not req.app.state.agent:
             return {
@@ -175,7 +175,7 @@ async def _check_agent_health(req: Request) -> Dict[str, Any]:
         
         agent = req.app.state.agent
         
-        # 尝试获取agent状态
+        # Try to get agent status
         if hasattr(agent, 'get_agent_status'):
             agent_status = await agent.get_agent_status()
             return {
@@ -183,7 +183,7 @@ async def _check_agent_health(req: Request) -> Dict[str, Any]:
                 "details": agent_status
             }
         else:
-            # 如果没有get_agent_status方法，进行基本检查
+            # Perform basic check if get_agent_status method is not available
             return {
                 "status": "healthy",
                 "details": {
@@ -199,9 +199,9 @@ async def _check_agent_health(req: Request) -> Dict[str, Any]:
         }
 
 async def _check_conversation_service_health() -> Dict[str, Any]:
-    """检查ConversationService健康状态"""
+    """Check ConversationService health status"""
     try:
-        # 获取统计信息来验证服务状态
+        # Get statistics to verify service status
         stats = await conversation_service.get_statistics()
         
         return {
@@ -220,17 +220,17 @@ async def _check_conversation_service_health() -> Dict[str, Any]:
         }
 
 async def _check_memory_health() -> Dict[str, Any]:
-    """检查内存使用情况"""
+    """Check memory usage"""
     try:
         import psutil
         import os
         
-        # 获取当前进程的内存使用情况
+        # Get memory usage of current process
         process = psutil.Process(os.getpid())
         memory_info = process.memory_info()
         memory_percent = process.memory_percent()
         
-        # 设置内存使用警告阈值
+        # Set memory usage warning thresholds
         warning_threshold = 80.0  # 80%
         critical_threshold = 95.0  # 95%
         
@@ -251,7 +251,7 @@ async def _check_memory_health() -> Dict[str, Any]:
         }
         
     except ImportError:
-        # 如果psutil不可用，返回基本信息
+        # Return basic info if psutil is not available
         return {
             "status": "unknown",
             "details": {
@@ -265,7 +265,7 @@ async def _check_memory_health() -> Dict[str, Any]:
         }
 
 async def _test_agent_basic_function(agent) -> bool:
-    """测试Agent基本功能"""
+    """Test Agent basic functionality"""
     try:
         required_methods = ['process_query']
         for method in required_methods:
@@ -279,9 +279,9 @@ async def _test_agent_basic_function(agent) -> bool:
         raise
 
 async def _test_conversation_service_basic_function() -> bool:
-    """测试ConversationService基本功能"""
+    """Test ConversationService basic functionality"""
     try:
-        # 测试基本的统计功能
+        # Test basic statistics functionality
         await conversation_service.get_statistics()
         return True
         

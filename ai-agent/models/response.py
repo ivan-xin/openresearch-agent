@@ -1,23 +1,23 @@
 """
-API响应模型 - MVP版本
+API Response Models
 """
 from pydantic import BaseModel, Field
 from typing import List, Optional, Dict, Any
 from datetime import datetime
 
 class ChatResponse(BaseModel):
-    """聊天响应模型"""
-    message: str = Field(..., description="AI回复消息")
-    conversation_id: str = Field(..., description="会话ID")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="响应元数据")
-    processing_time: float = Field(0, description="处理时间（秒）")
-    intent_type: Optional[str] = Field(None, description="识别的意图类型")
-    confidence: Optional[float] = Field(None, description="意图识别置信度")
+    """Chat Response Model"""
+    message: str = Field(..., description="AI reply message")
+    conversation_id: str = Field(..., description="Conversation ID")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Response metadata")
+    processing_time: float = Field(0, description="Processing time (seconds)")
+    intent_type: Optional[str] = Field(None, description="Recognized intent type")
+    confidence: Optional[float] = Field(None, description="Intent recognition confidence")
     
     model_config = {
         "json_schema_extra": {
             "example": {
-                "message": "我找到了以下关于Transformer架构的最新论文：\n\n1. **Attention Is All You Need** - Vaswani et al. (2017)\n   - 引用次数: 50,000+\n   - 摘要: 提出了完全基于注意力机制的Transformer模型...",
+                "message": "I found the following latest papers about Transformer architecture:\n\n1. **Attention Is All You Need** - Vaswani et al. (2017)\n   - Citations: 50,000+\n   - Abstract: Proposed the Transformer model based entirely on attention mechanism...",
                 "conversation_id": "conv_123456",
                 "metadata": {
                     "sources_count": 5,
@@ -32,19 +32,19 @@ class ChatResponse(BaseModel):
     }
 
 class MessageResponse(BaseModel):
-    """消息响应模型"""
-    id: str = Field(..., description="消息ID")
-    role: str = Field(..., description="消息角色 (user/assistant)")
-    content: str = Field(..., description="消息内容")
-    timestamp: str = Field(..., description="消息时间戳")
-    metadata: Dict[str, Any] = Field(default_factory=dict, description="消息元数据")
+    """Message Response Model"""
+    id: str = Field(..., description="Message ID")
+    role: str = Field(..., description="Message role (user/assistant)")
+    content: str = Field(..., description="Message content")
+    timestamp: str = Field(..., description="Message timestamp")
+    metadata: Dict[str, Any] = Field(default_factory=dict, description="Message metadata")
     
     model_config = {
         "json_schema_extra": {
             "example": {
                 "id": "msg_123",
                 "role": "user",
-                "content": "请帮我搜索关于深度学习的论文",
+                "content": "Please help me search for papers about deep learning",
                 "timestamp": "2024-01-15T10:30:00Z",
                 "metadata": {
                     "intent_type": "search_papers",
@@ -55,19 +55,19 @@ class MessageResponse(BaseModel):
     }
 
 class ConversationResponse(BaseModel):
-    """会话响应模型"""
-    conversation_id: str = Field(..., description="会话ID")
-    title: Optional[str] = Field(None, description="会话标题")
-    created_at: str = Field(..., description="创建时间")
-    updated_at: str = Field(..., description="更新时间")
-    message_count: int = Field(..., description="消息总数")
-    messages: List[MessageResponse] = Field(..., description="消息列表")
+    """Conversation Response Model"""
+    conversation_id: str = Field(..., description="Conversation ID")
+    title: Optional[str] = Field(None, description="Conversation title")
+    created_at: str = Field(..., description="Creation time")
+    updated_at: str = Field(..., description="Update time")
+    message_count: int = Field(..., description="Total message count")
+    messages: List[MessageResponse] = Field(..., description="Message list")
     
     model_config = {
         "json_schema_extra": {
             "example": {
                 "conversation_id": "conv_123",
-                "title": "深度学习论文搜索",
+                "title": "Deep Learning Paper Search",
                 "created_at": "2024-01-15T10:00:00Z",
                 "updated_at": "2024-01-15T10:30:00Z",
                 "message_count": 4,
@@ -77,36 +77,36 @@ class ConversationResponse(BaseModel):
     }
 
 class ConversationSummary(BaseModel):
-    """会话摘要模型"""
-    conversation_id: str = Field(..., description="会话ID")
-    title: Optional[str] = Field(None, description="会话标题")
-    created_at: str = Field(..., description="创建时间")
-    updated_at: str = Field(..., description="更新时间")
-    message_count: int = Field(..., description="消息总数")
-    last_message: Optional[str] = Field(None, description="最后一条消息")
-    last_message_role: Optional[str] = Field(None, description="最后一条消息的角色")
+    """Conversation Summary Model"""
+    conversation_id: str = Field(..., description="Conversation ID")
+    title: Optional[str] = Field(None, description="Conversation title")
+    created_at: str = Field(..., description="Creation time")
+    updated_at: str = Field(..., description="Update time")
+    message_count: int = Field(..., description="Total message count")
+    last_message: Optional[str] = Field(None, description="Last message")
+    last_message_role: Optional[str] = Field(None, description="Role of last message")
     
     model_config = {
         "json_schema_extra": {
             "example": {
                 "conversation_id": "conv_123",
-                "title": "深度学习论文搜索",
+                "title": "Deep Learning Paper Search",
                 "created_at": "2024-01-15T10:00:00Z",
                 "updated_at": "2024-01-15T10:30:00Z",
                 "message_count": 4,
-                "last_message": "感谢您的帮助！",
+                "last_message": "Thank you for your help!",
                 "last_message_role": "user"
             }
         }
     }
 
 class ConversationListResponse(BaseModel):
-    """会话列表响应模型"""
-    conversations: List[ConversationSummary] = Field(..., description="会话列表")
-    total: int = Field(..., description="总会话数")
-    page: int = Field(default=1, description="当前页码")
-    page_size: int = Field(default=20, description="每页大小")
-    has_more: bool = Field(default=False, description="是否有更多数据")
+    """Conversation List Response Model"""
+    conversations: List[ConversationSummary] = Field(..., description="Conversation list")
+    total: int = Field(..., description="Total conversations")
+    page: int = Field(default=1, description="Current page number")
+    page_size: int = Field(default=20, description="Page size")
+    has_more: bool = Field(default=False, description="Whether there is more data")
     
     model_config = {
         "json_schema_extra": {
@@ -121,12 +121,12 @@ class ConversationListResponse(BaseModel):
     }
 
 class ErrorResponse(BaseModel):
-    """错误响应模型"""
-    error: str = Field(..., description="错误信息")
-    error_code: Optional[str] = Field(None, description="错误代码")
-    error_type: str = Field(default="general_error", description="错误类型")
-    details: Optional[Dict[str, Any]] = Field(None, description="错误详情")
-    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="错误时间")
+    """Error Response Model"""
+    error: str = Field(..., description="Error message")
+    error_code: Optional[str] = Field(None, description="Error code")
+    error_type: str = Field(default="general_error", description="Error type")
+    details: Optional[Dict[str, Any]] = Field(None, description="Error details")
+    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="Error time")
     
     model_config = {
         "json_schema_extra": {
@@ -135,7 +135,7 @@ class ErrorResponse(BaseModel):
                 "error_code": "INTENT_001",
                 "error_type": "intent_error",
                 "details": {
-                    "query": "用户查询内容",
+                    "query": "User query content",
                     "confidence": 0.3
                 },
                 "timestamp": "2024-01-15T10:30:00Z"
@@ -144,12 +144,12 @@ class ErrorResponse(BaseModel):
     }
 
 class HealthResponse(BaseModel):
-    """健康检查响应模型"""
-    status: str = Field(..., description="服务状态")
-    service: str = Field(..., description="服务名称")
-    version: Optional[str] = Field(None, description="服务版本")
-    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="检查时间")
-    details: Optional[Dict[str, Any]] = Field(None, description="详细信息")
+    """Health Check Response Model"""
+    status: str = Field(..., description="Service status")
+    service: str = Field(..., description="Service name")
+    version: Optional[str] = Field(None, description="Service version")
+    timestamp: str = Field(default_factory=lambda: datetime.now().isoformat(), description="Check time")
+    details: Optional[Dict[str, Any]] = Field(None, description="Detailed information")
     
     model_config = {
         "json_schema_extra": {

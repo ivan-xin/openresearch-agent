@@ -1,5 +1,5 @@
 """
-日志中间件
+Logging middleware
 """
 import time
 import uuid
@@ -10,16 +10,16 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 class LoggingMiddleware(BaseHTTPMiddleware):
-    """请求日志中间件"""
+    """Request logging middleware"""
     
     async def dispatch(self, request: Request, call_next):
-        # 生成请求ID
+        # Generate request ID
         request_id = str(uuid.uuid4())
         
-        # 记录请求开始时间
+        # Record request start time
         start_time = time.time()
         
-        # 记录请求信息
+        # Record request information
         logger.info(
             "Request started",
             request_id=request_id,
@@ -29,17 +29,17 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             user_agent=request.headers.get("user-agent")
         )
         
-        # 将请求ID添加到请求状态中
+        # Add request ID to request state
         request.state.request_id = request_id
         
         try:
-            # 处理请求
+            # Process request
             response = await call_next(request)
             
-            # 计算处理时间
+            # Calculate processing time
             process_time = time.time() - start_time
             
-            # 记录响应信息
+            # Record response information
             logger.info(
                 "Request completed",
                 request_id=request_id,
@@ -47,16 +47,16 @@ class LoggingMiddleware(BaseHTTPMiddleware):
                 process_time=f"{process_time:.3f}s"
             )
             
-            # 添加请求ID到响应头
+            # Add request ID to response headers
             response.headers["X-Request-ID"] = request_id
             
             return response
             
         except Exception as exc:
-            # 计算处理时间
+            # Calculate processing time
             process_time = time.time() - start_time
             
-            # 记录异常信息
+            # Record exception information
             logger.error(
                 "Request failed",
                 request_id=request_id,
@@ -68,5 +68,5 @@ class LoggingMiddleware(BaseHTTPMiddleware):
             raise exc
 
 def add_logging_middleware(app: FastAPI):
-    """添加日志中间件"""
+    """Add logging middleware"""
     app.add_middleware(LoggingMiddleware)

@@ -1,20 +1,17 @@
 """
-API路由统一管理 - 支持多版本
+API route unified management - Support multiple versions
 """
 from fastapi import APIRouter
 
-# 导入各个版本的路由模块
 from .v1 import chat as chat_v1
 from .v1 import conversation as conversation_v1
 from .v2 import chat as chat_v2
 from .v2 import conversation as conversation_v2
 from .health import router as health_router
 
-# 创建版本路由器
 api_v1_router = APIRouter()
 api_v2_router = APIRouter()
 
-# 注册 V1 路由
 api_v1_router.include_router(
     health_router,
     prefix="/health",
@@ -48,9 +45,8 @@ api_v1_router.include_router(
     }
 )
 
-# 注册 V2 路由
 api_v2_router.include_router(
-    health_router,  # health 路由在两个版本中共享
+    health_router,
     prefix="/health",
     tags=["health-v2"],
     responses={
@@ -82,5 +78,4 @@ api_v2_router.include_router(
     }
 )
 
-# 导出版本路由器
 __all__ = ["api_v1_router", "api_v2_router"]

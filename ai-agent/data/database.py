@@ -1,5 +1,5 @@
 """
-数据库连接和管理
+Database connection and management
 """
 import asyncio
 from typing import Optional
@@ -12,14 +12,14 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 class DatabaseManager:
-    """数据库管理器"""
+    """Database Manager"""
     
     def __init__(self):
         self.pool: Optional[Pool] = None
         self._initialized = False
     
     async def initialize(self):
-        """初始化数据库连接池"""
+        """Initialize database connection pool"""
         if self._initialized:
             return
         
@@ -37,7 +37,7 @@ class DatabaseManager:
                 command_timeout=database_config.connection_timeout
             )
             
-            # 测试连接
+            # Test connection
             async with self.pool.acquire() as conn:
                 await conn.execute("SELECT 1")
             
@@ -49,7 +49,7 @@ class DatabaseManager:
             raise
     
     async def close(self):
-        """关闭数据库连接池"""
+        """Close database connection pool"""
         if self.pool:
             await self.pool.close()
             self._initialized = False
@@ -57,7 +57,7 @@ class DatabaseManager:
     
     @asynccontextmanager
     async def get_connection(self):
-        """获取数据库连接的上下文管理器"""
+        """Get database connection context manager"""
         if not self._initialized:
             await self.initialize()
         
@@ -65,18 +65,18 @@ class DatabaseManager:
             yield connection
     
     async def execute_script(self, script: str):
-        """执行SQL脚本"""
+        """Execute SQL script"""
         async with self.get_connection() as conn:
             await conn.execute(script)
     
     async def _enable_uuid_extension(self):
-        """启用UUID扩展"""
+        """Enable UUID extension"""
         async with self.get_connection() as conn:
             await conn.execute('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";')
             logger.debug("UUID extension enabled")
 
     async def _create_conversations_table(self):
-        """创建会话表"""
+        """Create conversations table"""
         create_conversations_sql = """
         CREATE TABLE IF NOT EXISTS conversations (
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -95,7 +95,7 @@ class DatabaseManager:
             logger.debug("Conversations table created")
     
     async def _create_messages_table(self):
-        """创建消息表"""
+        """Create messages table"""
         create_messages_sql = """
         CREATE TABLE IF NOT EXISTS messages (
             id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -112,7 +112,7 @@ class DatabaseManager:
             logger.debug("Messages table created")
     
     async def _create_indexes(self):
-        """创建索引"""
+        """Create indexes"""
         indexes = [
             "CREATE INDEX IF NOT EXISTS idx_conversations_user_id ON conversations(user_id);",
             "CREATE INDEX IF NOT EXISTS idx_conversations_updated_at ON conversations(updated_at);",
@@ -128,8 +128,9 @@ class DatabaseManager:
                 logger.debug(f"Index created: {index_sql}")
 
     async def _create_triggers(self):
-        """创建触发器"""
-        # 创建更新时间触发器函数
+        """Create triggers"""
+
+        # Create update timestamp trigger function
         trigger_function_sql = """
         CREATE OR REPLACE FUNCTION update_updated_at_column()
         RETURNS TRIGGER AS $$
@@ -140,7 +141,7 @@ class DatabaseManager:
         $$ language 'plpgsql';
         """
         
-        # 创建触发器
+        # Create trigger
         trigger_sql = """
         DROP TRIGGER IF EXISTS update_conversations_updated_at ON conversations;
         CREATE TRIGGER update_conversations_updated_at
@@ -155,7 +156,7 @@ class DatabaseManager:
             logger.debug("Triggers created")
 
     async def drop_tables(self):
-        """删除所有表（用于测试或重置）"""
+        """Drop all tables (for testing or reset)"""
         drop_sql = """
         DROP TABLE IF EXISTS messages CASCADE;
         DROP TABLE IF EXISTS conversations CASCADE;
@@ -167,21 +168,21 @@ class DatabaseManager:
             logger.info("Database tables dropped")
 
     async def create_tables(self):
-        """创建数据表"""
+        """Create database tables"""
         try:
             logger.info("Creating database tables...")
             
-            # 1. 启用UUID扩展
+            # 1. Enable UUID extension
             await self._enable_uuid_extension()
             
-            # 2. 创建表
+            # 2. Create tables
             await self._create_conversations_table()
             await self._create_messages_table()
             
-            # 3. 创建索引
+            # 3. Create indexes
             await self._create_indexes()
             
-            # 4. 创建触发器
+            # 4. Create triggers
             await self._create_triggers()
             
             logger.info("Database tables created successfully")
@@ -191,28 +192,28 @@ class DatabaseManager:
             raise
 
     async def add_missing_columns(self):
-        """添加缺失的列（用于数据库迁移）"""
+        """Add missing columns (for database migration)"""
         try:
             async with self.get_connection() as conn:
-                # 检查并添加 message_count 列
+                # Check and add message_count column
                 await conn.execute("""
                     ALTER TABLE conversations 
                     ADD COLUMN IF NOT EXISTS message_count INTEGER DEFAULT 0;
                 """)
                 
-                # 检查并添加 is_active 列
+                # Check and add is_active column
                 await conn.execute("""
                     ALTER TABLE conversations 
                     ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT TRUE;
                 """)
                 
-                # 检查并添加 context 列
+                # Check and add context column
                 await conn.execute("""
                     ALTER TABLE conversations 
                     ADD COLUMN IF NOT EXISTS context TEXT;
                 """)
                 
-                # 检查并添加 metadata 列
+                # Check and add metadata column
                 await conn.execute("""
                     ALTER TABLE conversations 
                     ADD COLUMN IF NOT EXISTS metadata JSONB DEFAULT '{}';
@@ -224,5 +225,5 @@ class DatabaseManager:
             logger.error("Failed to add missing columns", error=str(e))
             raise
 
-# 全局数据库管理器实例
+
 db_manager = DatabaseManager()

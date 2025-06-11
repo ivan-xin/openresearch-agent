@@ -1,5 +1,5 @@
 """
-数据模型包 - 数据访问层模型
+Data Model Package - Data Access Layer Models
 """
 from .conversation import Conversation
 from .message import Message

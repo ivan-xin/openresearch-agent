@@ -1,18 +1,18 @@
 #!/bin/bash
 
-# AI Agent 部署脚本
-# 用于部署 openresearch-agent 服务
+# AI Agent Deployment Script
+# Used to deploy openresearch-agent service
 
-set -e  # 遇到错误立即退出
+set -e  # Exit immediately if a command exits with a non-zero status
 
-# 颜色定义
+# Color definitions
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
-# 日志函数
+# Log functions
 log_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
@@ -29,13 +29,13 @@ log_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# 获取脚本所在目录的绝对路径
+# Get absolute path of script directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 AI_AGENT_DIR="$PROJECT_ROOT/ai-agent"
 MCP_SERVER_DIR="$PROJECT_ROOT/../openresearch-mcp-server"
 
-# 配置变量
+# Configuration variables
 SERVICE_NAME="ai-agent"
 SERVICE_USER="ai-agent"
 SERVICE_PORT="${PORT:-8000}"
@@ -43,205 +43,205 @@ SERVICE_HOST="${HOST:-0.0.0.0}"
 ENVIRONMENT="${ENVIRONMENT:-production}"
 PYTHON_VERSION="${PYTHON_VERSION:-3.11}"
 
-# 显示部署信息
+# Display deployment information
 show_deploy_info() {
-    log_info "=== AI Agent 部署信息 ==="
-    log_info "项目根目录: $PROJECT_ROOT"
-    log_info "AI Agent目录: $AI_AGENT_DIR"
-    log_info "MCP服务器目录: $MCP_SERVER_DIR"
-    log_info "服务名称: $SERVICE_NAME"
-    log_info "服务端口: $SERVICE_PORT"
-    log_info "服务主机: $SERVICE_HOST"
-    log_info "部署环境: $ENVIRONMENT"
-    log_info "Python版本: $PYTHON_VERSION"
+    log_info "=== AI Agent Deployment Info ==="
+    log_info "Project Root: $PROJECT_ROOT"
+    log_info "AI Agent Directory: $AI_AGENT_DIR"
+    log_info "MCP Server Directory: $MCP_SERVER_DIR"
+    log_info "Service Name: $SERVICE_NAME"
+    log_info "Service Port: $SERVICE_PORT"
+    log_info "Service Host: $SERVICE_HOST"
+    log_info "Environment: $ENVIRONMENT"
+    log_info "Python Version: $PYTHON_VERSION"
     log_info "=========================="
 }
 
-# 检查系统依赖
+# Check system dependencies
 check_system_dependencies() {
-    log_info "检查系统依赖..."
+    log_info "Checking system dependencies..."
     
-    # 检查Python
+    # Check Python
     if ! command -v python3 &> /dev/null; then
-        log_error "Python3 未安装"
+        log_error "Python3 is not installed"
         exit 1
     fi
     
-    # 检查pip
+    # Check pip
     if ! command -v pip3 &> /dev/null; then
-        log_error "pip3 未安装"
+        log_error "pip3 is not installed"
         exit 1
     fi
     
-    # 检查systemd (用于服务管理)
+    # Check systemd (for service management)
     if ! command -v systemctl &> /dev/null; then
-        log_warning "systemctl 不可用，将跳过服务安装"
+        log_warning "systemctl is not available, service installation will be skipped"
     fi
     
-    log_success "系统依赖检查完成"
+    log_success "System dependency check completed"
 }
 
-# 检查项目结构
+# Check project structure
 check_project_structure() {
-    log_info "检查项目结构..."
+    log_info "Checking project structure..."
     
-    # 检查AI Agent目录
+    # Check AI Agent directory
     if [ ! -d "$AI_AGENT_DIR" ]; then
-        log_error "AI Agent目录不存在: $AI_AGENT_DIR"
+        log_error "AI Agent directory does not exist: $AI_AGENT_DIR"
         exit 1
     fi
     
-    # 检查主文件
+    # Check main file
     if [ ! -f "$AI_AGENT_DIR/main.py" ]; then
-        log_error "主文件不存在: $AI_AGENT_DIR/main.py"
+        log_error "Main file does not exist: $AI_AGENT_DIR/main.py"
         exit 1
     fi
     
-    # 检查配置文件
+    # Check configuration file
     if [ ! -f "$AI_AGENT_DIR/configs/settings.py" ]; then
-        log_error "配置文件不存在: $AI_AGENT_DIR/configs/settings.py"
+        log_error "Configuration file does not exist: $AI_AGENT_DIR/configs/settings.py"
         exit 1
     fi
     
-    # 检查环境变量文件（在项目根目录）
+    # Check environment variable file (in project root)
     if [ ! -f "$PROJECT_ROOT/.env" ]; then
-        log_warning "环境变量文件不存在: $PROJECT_ROOT/.env"
+        log_warning "Environment variable file does not exist: $PROJECT_ROOT/.env"
     fi
     
-    # 检查MCP服务器目录
+    # Check MCP server directory
     if [ ! -d "$MCP_SERVER_DIR" ]; then
-        log_warning "MCP服务器目录不存在: $MCP_SERVER_DIR"
-        log_warning "请确保 openresearch-mcp-server 项目在正确位置"
+        log_warning "MCP server directory does not exist: $MCP_SERVER_DIR"
+        log_warning "Please ensure openresearch-mcp-server project is in the correct location"
     fi
     
-    log_success "项目结构检查完成"
+    log_success "Project structure check completed"
 }
 
-# 创建服务用户
+# Create service user
 create_service_user() {
     if [ "$ENVIRONMENT" = "production" ]; then
-        log_info "创建服务用户..."
+        log_info "Creating service user..."
         
         if ! id "$SERVICE_USER" &>/dev/null; then
             sudo useradd --system --shell /bin/false --home-dir /nonexistent --no-create-home "$SERVICE_USER"
-            log_success "服务用户 $SERVICE_USER 创建成功"
+            log_success "Service user $SERVICE_USER created successfully"
         else
-            log_info "服务用户 $SERVICE_USER 已存在"
+            log_info "Service user $SERVICE_USER already exists"
         fi
     fi
 }
 
-# 设置Python虚拟环境
+# Set up Python virtual environment
 setup_virtual_environment() {
-    log_info "设置Python虚拟环境..."
+    log_info "Setting up Python virtual environment..."
     
     cd "$AI_AGENT_DIR"
     
-    # 创建虚拟环境
+    # Create virtual environment
     if [ ! -d "venv" ]; then
         python3 -m venv venv
-        log_success "虚拟环境创建成功"
+        log_success "Virtual environment created successfully"
     else
-        log_info "虚拟环境已存在"
+        log_info "Virtual environment already exists"
     fi
     
-    # 激活虚拟环境
+    # Activate virtual environment
     source venv/bin/activate
     
-    # 升级pip
+    # Upgrade pip
     pip install --upgrade pip
     
-    # 安装依赖
+    # Install dependencies
     if [ -f "requirements.txt" ]; then
         pip install -r requirements.txt
-        log_success "依赖安装完成"
+        log_success "Dependencies installation completed"
     else
-        log_warning "requirements.txt 不存在，跳过依赖安装"
+        log_warning "requirements.txt does not exist, skipping dependency installation"
     fi
     
     deactivate
 }
 
-# 设置MCP服务器环境
+# Set up MCP server environment
 setup_mcp_server() {
     if [ -d "$MCP_SERVER_DIR" ]; then
-        log_info "设置MCP服务器环境..."
+        log_info "Setting up MCP server environment..."
         
         cd "$MCP_SERVER_DIR"
         
-        # 创建MCP服务器虚拟环境
+        # Create MCP server virtual environment
         if [ ! -d "venv" ]; then
             python3 -m venv venv
-            log_success "MCP服务器虚拟环境创建成功"
+            log_success "MCP server virtual environment created successfully"
         else
-            log_info "MCP服务器虚拟环境已存在"
+            log_info "MCP server virtual environment already exists"
         fi
         
-        # 激活虚拟环境并安装依赖
+        # Activate virtual environment and install dependencies
         source venv/bin/activate
         pip install --upgrade pip
         
         if [ -f "requirements.txt" ]; then
             pip install -r requirements.txt
-            log_success "MCP服务器依赖安装完成"
+            log_success "MCP server dependencies installation completed"
         fi
         
         deactivate
         cd "$AI_AGENT_DIR"
     else
-        log_warning "跳过MCP服务器设置"
+        log_warning "Skipping MCP server setup"
     fi
 }
 
-# 处理环境变量文件
+# Handle environment variable file
 setup_environment_file() {
-    log_info "处理环境变量文件..."
+    log_info "Processing environment variable file..."
     
-    # 检查项目根目录的.env文件
+    # Check .env file in project root
     if [ -f "$PROJECT_ROOT/.env" ]; then
-        log_info "发现项目根目录的.env文件"
+        log_info "Found .env file in project root"
         
-        # 如果是生产环境，复制并修改配置
+        # If production environment, copy and modify configuration
         if [ "$ENVIRONMENT" = "production" ]; then
-            # 创建生产环境配置
+            # Create production environment configuration
             cp "$PROJECT_ROOT/.env" "$PROJECT_ROOT/.env.production"
             
-            # 修改生产环境特定配置
+            # Modify production-specific configuration
             sed -i.bak "s/DEBUG=true/DEBUG=false/g" "$PROJECT_ROOT/.env.production"
             sed -i.bak "s/LOG_LEVEL=DEBUG/LOG_LEVEL=INFO/g" "$PROJECT_ROOT/.env.production"
             sed -i.bak "s/HOST=localhost/HOST=$SERVICE_HOST/g" "$PROJECT_ROOT/.env.production"
             sed -i.bak "s/PORT=8000/PORT=$SERVICE_PORT/g" "$PROJECT_ROOT/.env.production"
             
-            # 数据库配置 - 生产环境通常启用数据库
+            # Database configuration - usually enabled in production
             sed -i.bak "s/DB_SKIP_IN_DEV=true/DB_SKIP_IN_DEV=false/g" "$PROJECT_ROOT/.env.production"
             
-            # 清理备份文件
+            # Clean up backup files
             rm -f "$PROJECT_ROOT/.env.production.bak"
             
-            log_success "生产环境配置文件创建完成"
+            log_success "Production environment configuration file created"
         fi
     else
-        log_warning ".env文件不存在，将创建默认配置"
+        log_warning ".env file does not exist, creating default configuration"
         create_default_env_file
     fi
 }
 
-# 创建默认环境变量文件
+# Create default environment variable file
 create_default_env_file() {
-    log_info "创建默认环境变量文件..."
+    log_info "Creating default environment variable file..."
     
     cat > "$PROJECT_ROOT/.env" << EOF
-# AI Agent 配置
+# AI Agent Configuration
 APP_NAME=AI-Agent
 APP_VERSION=1.0.0
 DEBUG=${DEBUG:-false}
 LOG_LEVEL=${LOG_LEVEL:-INFO}
 
-# 服务器配置
+# Server Configuration
 HOST=$SERVICE_HOST
 PORT=$SERVICE_PORT
 
-# LLM配置 - Together.ai
+# LLM Configuration - Together.ai
 LLM_PROVIDER=together
 TOGETHER_API_KEY=${TOGETHER_API_KEY:-}
 TOGETHER_MODEL=Qwen/Qwen2.5-VL-72B-Instruct
@@ -250,14 +250,14 @@ LLM_MAX_TOKENS=2000
 LLM_TEMPERATURE=0.7
 LLM_TIMEOUT=30
 
-# MCP服务器配置
+# MCP Server Configuration
 MCP_SERVER_HOST=localhost
 MCP_SERVER_PORT=8001
 MCP_SERVER_TIMEOUT=60
 MCP_ENABLE_DEBUG_LOG=true
 MCP_DEBUG_LOG_FILE=ai-agent/logs/mcp_debug.log
 
-# MCP 配置 - stdio 协议
+# MCP Configuration - stdio protocol
 MCP_COMMAND=../openresearch-mcp-server/venv/bin/python
 MCP_ARGS=["../openresearch-mcp-server/src/main.py"]
 MCP_CWD=../openresearch-mcp-server
@@ -265,7 +265,7 @@ MCP_TIMEOUT=30
 MCP_MAX_RETRIES=3
 MCP_RETRY_DELAY=1.0
 
-# 数据库配置
+# Database Configuration
 DB_HOST=${DB_HOST:-localhost}
 DB_PORT=${DB_PORT:-5432}
 DB_NAME=${DB_NAME:-openrearch}
@@ -273,24 +273,24 @@ DB_USER=${DB_USER:-postgres}
 DB_PASSWORD=${DB_PASSWORD:-123456}
 DATABASE_URL=postgresql://\${DB_USER}:\${DB_PASSWORD}@\${DB_HOST}:\${DB_PORT}/\${DB_NAME}
 
-# 数据库控制 - 生产环境默认启用数据库
+# Database Control - Database enabled by default in production
 DB_SKIP_IN_DEV=${DB_SKIP_IN_DEV:-false}
 
-# 缓存配置
+# Cache Configuration
 CACHE_TYPE=memory
 CACHE_TTL=3600
 EOF
-    log_success "默认.env文件创建完成"
+    log_success "Default .env file created"
 }
 
-# 创建日志目录
+# Create log directory
 setup_logging() {
-    log_info "设置日志目录..."
+    log_info "Setting up log directory..."
     
-    # 创建日志目录
+    # Create log directory
     mkdir -p "$AI_AGENT_DIR/logs"
     
-    # 设置日志目录权限
+    # Set log directory permissions
     if [ "$ENVIRONMENT" = "production" ]; then
         sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$AI_AGENT_DIR/logs"
         sudo chmod -R 755 "$AI_AGENT_DIR/logs"
@@ -298,36 +298,36 @@ setup_logging() {
         chmod -R 755 "$AI_AGENT_DIR/logs"
     fi
     
-    log_success "日志目录设置完成"
+    log_success "Log directory setup completed"
 }
 
-# 设置文件权限
+# Set file permissions
 setup_permissions() {
-    log_info "设置文件权限..."
+    log_info "Setting file permissions..."
     
     if [ "$ENVIRONMENT" = "production" ]; then
-        # 生产环境权限设置
+        # Production environment permissions
         sudo chown -R "$SERVICE_USER:$SERVICE_USER" "$AI_AGENT_DIR"
         sudo chown "$SERVICE_USER:$SERVICE_USER" "$PROJECT_ROOT/.env"*
         sudo chmod -R 755 "$AI_AGENT_DIR"
         sudo chmod 644 "$PROJECT_ROOT/.env"*
         sudo chmod +x "$AI_AGENT_DIR/main.py"
     else
-        # 开发环境权限设置
+        # Development environment permissions
         chmod -R 755 "$AI_AGENT_DIR"
         chmod +x "$AI_AGENT_DIR/main.py"
         chmod 644 "$PROJECT_ROOT/.env"*
     fi
     
-    log_success "文件权限设置完成"
+    log_success "File permissions setup completed"
 }
 
-# 创建systemd服务文件
+# Create systemd service file
 create_systemd_service() {
     if [ "$ENVIRONMENT" = "production" ] && command -v systemctl &> /dev/null; then
-        log_info "创建systemd服务..."
+        log_info "Creating systemd service..."
         
-        # 确定使用的环境文件
+        # Determine environment file to use
         ENV_FILE="$PROJECT_ROOT/.env.production"
         if [ ! -f "$ENV_FILE" ]; then
             ENV_FILE="$PROJECT_ROOT/.env"
@@ -353,7 +353,7 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=$SERVICE_NAME
 
-# 安全设置
+# Security Settings
 NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
@@ -365,127 +365,127 @@ ReadWritePaths=$PROJECT_ROOT
 WantedBy=multi-user.target
 EOF
         
-        # 重新加载systemd
+        # Reload systemd
         sudo systemctl daemon-reload
         sudo systemctl enable "$SERVICE_NAME"
         
-        log_success "systemd服务创建完成"
+        log_success "systemd service creation completed"
     else
-        log_info "跳过systemd服务创建"
+        log_info "Skipping systemd service creation"
     fi
 }
 
-# 启动服务
+# Start service
 start_service() {
-    log_info "启动服务..."
+    log_info "Starting service..."
     
     if [ "$ENVIRONMENT" = "production" ] && command -v systemctl &> /dev/null; then
-        # 生产环境使用systemd
+        # Production environment uses systemd
         sudo systemctl start "$SERVICE_NAME"
         sleep 3
         sudo systemctl status "$SERVICE_NAME" --no-pager
-        log_success "服务启动完成"
+        log_success "Service startup completed"
     else
-        # 开发环境直接运行
-        log_info "开发环境模式，请手动启动服务:"
+        # Development environment runs directly
+        log_info "Development mode, please start service manually:"
         log_info "cd $AI_AGENT_DIR"
         log_info "source venv/bin/activate"
         log_info "python main.py"
     fi
 }
 
-# 验证部署
+# Verify deployment
 verify_deployment() {
-    log_info "验证部署..."
+    log_info "Verifying deployment..."
     
-    # 等待服务启动
+    # Wait for service to start
     sleep 5
     
-    # 检查端口是否监听
+    # Check if port is listening
     if command -v netstat &> /dev/null; then
         if netstat -tuln | grep ":$SERVICE_PORT " > /dev/null; then
-            log_success "服务端口 $SERVICE_PORT 正在监听"
+            log_success "Service port $SERVICE_PORT is listening"
         else
-            log_warning "服务端口 $SERVICE_PORT 未监听"
+            log_warning "Service port $SERVICE_PORT is not listening"
         fi
     fi
     
-    # 检查HTTP响应
+    # Check HTTP response
     if command -v curl &> /dev/null; then
         if curl -s "http://localhost:$SERVICE_PORT/" > /dev/null; then
-            log_success "HTTP服务响应正常"
+            log_success "HTTP service response is normal"
         else
-            log_warning "HTTP服务无响应"
+            log_warning "HTTP service is not responding"
         fi
     fi
 }
 
-# 显示部署结果
+# Show deployment result
 show_deployment_result() {
-    log_success "=== 部署完成 ==="
-    log_info "服务地址: http://$SERVICE_HOST:$SERVICE_PORT"
-    log_info "API文档: http://$SERVICE_HOST:$SERVICE_PORT/docs"
-    log_info "健康检查: http://$SERVICE_HOST:$SERVICE_PORT/api/v1/health"
+    log_success "=== Deployment Complete ==="
+    log_info "Service Address: http://$SERVICE_HOST:$SERVICE_PORT"
+    log_info "API Documentation: http://$SERVICE_HOST:$SERVICE_PORT/docs"
+    log_info "Health Check: http://$SERVICE_HOST:$SERVICE_PORT/api/v1/health"
     
     if [ "$ENVIRONMENT" = "production" ]; then
         log_info ""
-        log_info "服务管理命令:"
-        log_info "  启动服务: sudo systemctl start $SERVICE_NAME"
-        log_info "  停止服务: sudo systemctl stop $SERVICE_NAME"
-        log_info "  重启服务: sudo systemctl restart $SERVICE_NAME"
-        log_info "  查看状态: sudo systemctl status $SERVICE_NAME"
-        log_info "  查看日志: sudo journalctl -u $SERVICE_NAME -f"
+        log_info "Service Management Commands:"
+        log_info "  Start Service: sudo systemctl start $SERVICE_NAME"
+        log_info "  Stop Service: sudo systemctl stop $SERVICE_NAME"
+        log_info "  Restart Service: sudo systemctl restart $SERVICE_NAME"
+        log_info "  Check Status: sudo systemctl status $SERVICE_NAME"
+        log_info "  View Logs: sudo journalctl -u $SERVICE_NAME -f"
     fi
     
     log_info ""
-    log_info "配置文件:"
-    log_info "  环境变量: $PROJECT_ROOT/.env"
+    log_info "Configuration Files:"
+    log_info "  Environment Variables: $PROJECT_ROOT/.env"
     if [ -f "$PROJECT_ROOT/.env.production" ]; then
-        log_info "  生产配置: $PROJECT_ROOT/.env.production"
+        log_info "  Production Config: $PROJECT_ROOT/.env.production"
     fi
     
     log_info ""
-    log_info "日志文件:"
-    log_info "  应用日志: $AI_AGENT_DIR/logs/app.log"
-    log_info "  MCP日志: $AI_AGENT_DIR/logs/mcp_debug.log"
+    log_info "Log Files:"
+    log_info "  Application Log: $AI_AGENT_DIR/logs/app.log"
+    log_info "  MCP Log: $AI_AGENT_DIR/logs/mcp_debug.log"
     
     if [ "$ENVIRONMENT" = "production" ]; then
-        log_info "  系统日志: sudo journalctl -u $SERVICE_NAME"
+        log_info "  System Log: sudo journalctl -u $SERVICE_NAME"
     fi
     
     log_success "=================="
 }
 
-# 数据库设置提示
+# Database Setup Information
 show_database_info() {
     log_info ""
-    log_info "=== 数据库配置说明 ==="
-    log_info "当前数据库配置可能需要根据实际环境调整："
+    log_info "=== Database Configuration Guide ==="
+    log_info "Current database configuration may need to be adjusted based on actual environment:"
     log_info ""
-    log_info "环境变量配置："
-    log_info "  DB_HOST - 数据库主机地址"
-    log_info "  DB_PORT - 数据库端口 (默认: 5432)"
-    log_info "  DB_NAME - 数据库名称"
-    log_info "  DB_USER - 数据库用户名"
-    log_info "  DB_PASSWORD - 数据库密码"
-    log_info "  DB_SKIP_IN_DEV - 开发环境是否跳过数据库 (true/false)"
+    log_info "Environment Variables:"
+    log_info "  DB_HOST - Database Host Address"
+    log_info "  DB_PORT - Database Port (default: 5432)"
+    log_info "  DB_NAME - Database Name"
+    log_info "  DB_USER - Database Username"
+    log_info "  DB_PASSWORD - Database Password"
+    log_info "  DB_SKIP_IN_DEV - Skip Database in Development (true/false)"
     log_info ""
-    log_info "如需修改数据库配置，请编辑："
+    log_info "To modify database configuration, please edit:"
     if [ "$ENVIRONMENT" = "production" ] && [ -f "$PROJECT_ROOT/.env.production" ]; then
         log_info "  $PROJECT_ROOT/.env.production"
     else
         log_info "  $PROJECT_ROOT/.env"
     fi
     log_info ""
-    log_info "数据库初始化："
+    log_info "Database Initialization:"
     log_info "  cd $AI_AGENT_DIR"
     log_info "  python data/init_db.py"
     log_info "=========================="
 }
 
-# 主函数
+# Main Function
 main() {
-    log_info "开始部署 AI Agent 服务..."
+    log_info "Starting AI Agent Service Deployment..."
     
     show_deploy_info
     check_system_dependencies
@@ -502,53 +502,53 @@ main() {
     show_deployment_result
     show_database_info
     
-    log_success "AI Agent 部署完成！"
+    log_success "AI Agent Deployment Complete!"
 }
 
-# 清理函数
+# Cleanup Function
 cleanup() {
-    log_info "执行清理操作..."
+    log_info "Performing cleanup..."
     
     if [ "$ENVIRONMENT" = "production" ] && command -v systemctl &> /dev/null; then
         if systemctl is-active --quiet "$SERVICE_NAME"; then
             sudo systemctl stop "$SERVICE_NAME"
-            log_info "服务已停止"
+            log_info "Service stopped"
         fi
     fi
 }
 
-# 帮助信息
+# Help Information
 show_help() {
-    echo "AI Agent 部署脚本"
+    echo "AI Agent Deployment Script"
     echo ""
-    echo "用法: $0 [选项]"
+    echo "Usage: $0 [options]"
     echo ""
-    echo "选项:"
-    echo "  -h, --help          显示帮助信息"
-    echo "  -e, --env ENV       设置部署环境 (development|production, 默认: production)"
-    echo "  -p, --port PORT     设置服务端口 (默认: 8000)"
-    echo "  -H, --host HOST     设置服务主机 (默认: 0.0.0.0)"
-    echo "  --cleanup           清理服务"
+    echo "Options:"
+    echo "  -h, --help          Show help information"
+    echo "  -e, --env ENV       Set deployment environment (development|production, default: production)"
+    echo "  -p, --port PORT     Set service port (default: 8000)"
+    echo "  -H, --host HOST     Set service host (default: 0.0.0.0)"
+    echo "  --cleanup           Clean up service"
     echo ""
-    echo "环境变量:"
-    echo "  ENVIRONMENT         部署环境"
-    echo "  PORT               服务端口"
-    echo "  HOST               服务主机"
-    echo "  DB_HOST            数据库主机"
-    echo "  DB_PORT            数据库端口"
-    echo "  DB_NAME            数据库名称"
-    echo "  DB_USER            数据库用户"
-    echo "  DB_PASSWORD        数据库密码"
-    echo "  TOGETHER_API_KEY   Together.ai API密钥"
+    echo "Environment Variables:"
+    echo "  ENVIRONMENT         Deployment Environment"
+    echo "  PORT               Service Port"
+    echo "  HOST               Service Host"
+    echo "  DB_HOST            Database Host"
+    echo "  DB_PORT            Database Port"
+    echo "  DB_NAME            Database Name"
+    echo "  DB_USER            Database User"
+    echo "  DB_PASSWORD        Database Password"
+    echo "  TOGETHER_API_KEY   Together.ai API Key"
     echo ""
-    echo "示例:"
-    echo "  $0                                    # 生产环境部署"
-    echo "  $0 -e development                    # 开发环境部署"
-    echo "  $0 -p 8080 -H 127.0.0.1             # 指定端口和主机"
-    echo "  $0 --cleanup                         # 清理服务"
+    echo "Examples:"
+    echo "  $0                                    # Production deployment"
+    echo "  $0 -e development                    # Development deployment"
+    echo "  $0 -p 8080 -H 127.0.0.1             # Specify port and host"
+    echo "  $0 --cleanup                         # Clean up service"
 }
 
-# 解析命令行参数
+# Parse Command Line Arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
         -h|--help)
@@ -572,16 +572,15 @@ while [[ $# -gt 0 ]]; do
             exit 0
             ;;
         *)
-            log_error "未知选项: $1"
+            log_error "Unknown option: $1"
             show_help
             exit 1
             ;;
     esac
 done
 
-# 设置错误处理
+# Set Error Handler
 trap cleanup EXIT
 
-# 执行主函数
+# Execute Main Function
 main
-

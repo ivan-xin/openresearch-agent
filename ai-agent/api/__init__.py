@@ -1,7 +1,6 @@
 """
-API包 - 路由和中间件
+API package - Routes and middleware
 """
-# 修改为绝对导入，支持多版本
 from api.v1.chat import router as chat_router_v1
 from api.v1.conversation import router as conversation_router_v1
 from api.v2.chat import router as chat_router_v2

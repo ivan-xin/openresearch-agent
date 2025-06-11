@@ -1,5 +1,5 @@
 """
-日志工具 - 兼容版本
+Log Utils - Compatible Version
 """
 import logging
 import logging.handlers
@@ -9,25 +9,25 @@ from typing import Optional, Any
 from configs.settings import settings
 
 class CustomLogger:
-    """自定义Logger类，支持error参数和structlog风格"""
+    """Custom Logger class, supports error parameters and structlog style"""
     
     def __init__(self, name: str = None):
         self._logger = logging.getLogger(name or __name__)
         self._struct_logger = structlog.get_logger(name or __name__)
         
-        # 确保logger级别正确设置
+        # Ensure logger level is set correctly
         log_level = getattr(logging, settings.log_level.upper(), logging.DEBUG)
         self._logger.setLevel(log_level)
     
     def _format_message_with_kwargs(self, message: str, **kwargs) -> str:
-        """将kwargs格式化到消息中"""
+        """Format kwargs into message"""
         if kwargs:
             kwargs_str = ", ".join([f"{k}={v}" for k, v in kwargs.items()])
             return f"{message} [{kwargs_str}]"
         return message
     
     def debug(self, message: str, error: Optional[Any] = None, **kwargs):
-        """调试日志"""
+        """Debug log"""
         if error:
             formatted_msg = self._format_message_with_kwargs(f"{message}: {error}", **kwargs)
             self._logger.debug(formatted_msg)
@@ -38,15 +38,15 @@ class CustomLogger:
             self._struct_logger.debug(message, **kwargs)
     
     def info(self, message: str, error: Optional[Any] = None, **kwargs):
-        """信息日志 - 兼容structlog风格"""
+        """Info log - Compatible with structlog style"""
         if error:
             formatted_msg = self._format_message_with_kwargs(f"{message}: {error}", **kwargs)
             self._logger.info(formatted_msg)
             self._struct_logger.info(message, error=str(error), **kwargs)
         elif kwargs:
-            # 如果有其他参数，使用structlog风格
+            # If there are other parameters, use structlog style
             self._struct_logger.info(message, **kwargs)
-            # 同时也用标准logger记录（不传递kwargs）
+            # Also record with standard logger (without passing kwargs)
             formatted_msg = self._format_message_with_kwargs(message, **kwargs)
             self._logger.info(formatted_msg)
         else:
@@ -54,7 +54,7 @@ class CustomLogger:
             self._struct_logger.info(message)
     
     def warning(self, message: str, error: Optional[Any] = None, **kwargs):
-        """警告日志"""
+        """Warning log"""
         if error:
             formatted_msg = self._format_message_with_kwargs(f"{message}: {error}", **kwargs)
             self._logger.warning(formatted_msg)
@@ -68,7 +68,7 @@ class CustomLogger:
             self._struct_logger.warning(message)
     
     def error(self, message: str, error: Optional[Any] = None, **kwargs):
-        """错误日志"""
+        """Error log"""
         if error:
             formatted_msg = self._format_message_with_kwargs(f"{message}: {error}", **kwargs)
             self._logger.error(formatted_msg, exc_info=True)
@@ -82,7 +82,7 @@ class CustomLogger:
             self._struct_logger.error(message)
     
     def critical(self, message: str, error: Optional[Any] = None, **kwargs):
-        """严重错误日志"""
+        """Critical error log"""
         if error:
             formatted_msg = self._format_message_with_kwargs(f"{message}: {error}", **kwargs)
             self._logger.critical(formatted_msg, exc_info=True)
@@ -96,26 +96,26 @@ class CustomLogger:
             self._struct_logger.critical(message)
     
     def exception(self, message: str, **kwargs):
-        """异常日志（自动包含堆栈信息）"""
+        """Exception log (automatically includes stack information)"""
         formatted_msg = self._format_message_with_kwargs(message, **kwargs)
         self._logger.exception(formatted_msg)
         self._struct_logger.exception(message, **kwargs)
 
 def setup_logging():
-    """设置日志配置"""
-    # 确保日志目录存在
+    """Setup logging configuration"""
+    # Ensure log directory exists
     if settings.log_file:
         log_dir = os.path.dirname(settings.log_file)
         if log_dir and not os.path.exists(log_dir):
             os.makedirs(log_dir, exist_ok=True)
     
-    # 获取日志级别
+    # Get log level
     log_level = getattr(logging, settings.log_level.upper(), logging.DEBUG)
     
-    # 创建处理器列表
+    # Create handlers list
     handlers = []
     
-    # 文件处理器
+    # File handler
     if settings.log_file:
         file_handler = logging.handlers.RotatingFileHandler(
             settings.log_file,
@@ -126,23 +126,23 @@ def setup_logging():
         file_handler.setLevel(log_level)
         handlers.append(file_handler)
     
-    # 控制台处理器
+    # Console handler
     console_handler = logging.StreamHandler()
     console_handler.setLevel(log_level)
     handlers.append(console_handler)
     
-    # 配置标准日志
+    # Configure standard logging
     logging.basicConfig(
         level=log_level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
         handlers=handlers,
-        force=True  # 强制重新配置
+        force=True  # Force reconfiguration
     )
     
-    # 设置根logger级别
+    # Set root logger level
     logging.getLogger().setLevel(log_level)
     
-    # 配置structlog
+    # Configure structlog
     structlog.configure(
         processors=[
             structlog.stdlib.filter_by_level,
@@ -161,27 +161,27 @@ def setup_logging():
         cache_logger_on_first_use=True,
     )
     
-    # 验证日志配置
+    # Verify logging configuration
     test_logger = logging.getLogger("setup_test")
     test_logger.debug("Debug logging is enabled")
     test_logger.info(f"Logging setup completed - Level: {settings.log_level}")
     
-    print(f"=== 日志配置信息 ===")
-    print(f"日志级别: {settings.log_level} ({log_level})")
-    print(f"日志文件: {settings.log_file}")
-    print(f"根logger级别: {logging.getLogger().level}")
-    print(f"处理器数量: {len(handlers)}")
+    print(f"=== Logging Configuration Info ===")
+    print(f"Log Level: {settings.log_level} ({log_level})")
+    print(f"Log File: {settings.log_file}")
+    print(f"Root Logger Level: {logging.getLogger().level}")
+    print(f"Number of Handlers: {len(handlers)}")
     for i, handler in enumerate(handlers):
-        print(f"  处理器{i}: {type(handler).__name__} - 级别: {handler.level}")
+        print(f"  Handler {i}: {type(handler).__name__} - Level: {handler.level}")
 
 def get_logger(name: str = None) -> CustomLogger:
-    """获取自定义日志记录器"""
+    """Get custom logger"""
     return CustomLogger(name)
 
-# 为了兼容现有代码，也提供structlog的获取方式
+# To maintain compatibility with existing code, also provide structlog getter
 def get_struct_logger(name: str = None):
-    """获取structlog记录器"""
+    """Get structlog logger"""
     return structlog.get_logger(name)
 
-# 初始化日志
+# Initialize logging
 setup_logging()

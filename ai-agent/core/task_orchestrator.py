@@ -1,5 +1,5 @@
 """
-任务编排器 - 简化版（方案1）
+Task Orchestrator
 """
 import uuid
 from typing import List, Dict, Any
@@ -10,20 +10,20 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 class TaskOrchestrator:
-    """任务编排器类 - 简化版"""
+    """Task Orchestrator Class"""
     
     def __init__(self):
         self.intent_to_tools = self._build_intent_tool_mapping()
     
     async def create_plan(self, intent_result: IntentAnalysisResult) -> TaskPlan:
-        """根据意图分析结果创建任务执行计划"""
+        """Create task execution plan based on intent analysis results"""
         try:
             logger.info("Creating task plan", intent=intent_result.primary_intent.type.value)
             
-            # 根据主要意图创建任务
+            # Create tasks based on primary intent
             primary_tasks = self._create_tasks_for_intent(intent_result.primary_intent)
             
-            # 处理次要意图（如果有）
+            # Handle secondary intents (if any)
             # secondary_tasks = []
             # for secondary_intent in intent_result.secondary_intents:
             #     secondary_tasks.extend(self._create_tasks_for_intent(secondary_intent))
@@ -31,7 +31,7 @@ class TaskOrchestrator:
             # all_tasks = primary_tasks + secondary_tasks
             all_tasks = primary_tasks
 
-            # 创建简化的任务计划
+            # Create simplified task plan
             task_plan = TaskPlan(tasks=all_tasks)
             
             logger.info("Task plan created", 
@@ -45,45 +45,45 @@ class TaskOrchestrator:
             raise
     
     def _build_intent_tool_mapping(self) -> Dict[IntentType, List[str]]:
-        """构建意图到工具的映射关系"""
+        """Build intent to tool mapping relationship"""
         return {
-            # 论文相关
+            # Paper related
             IntentType.SEARCH_PAPERS: ["search_papers"],
             IntentType.GET_PAPER_DETAILS: ["get_paper_details"],
             IntentType.GET_PAPER_CITATIONS: ["get_paper_citations"],
             
-            # 作者相关
+            # Author related
             IntentType.SEARCH_AUTHORS: ["search_authors"],
             IntentType.GET_AUTHOR_DETAILS: ["search_authors"],
             IntentType.GET_AUTHOR_PAPERS: ["get_author_papers"],
             
-            # 网络分析
+            # Network analysis
             IntentType.CITATION_NETWORK: ["get_paper_citations"],
-            IntentType.COLLABORATION_NETWORK: ["search_authors"],  # 使用搜索作者作为替代
+            IntentType.COLLABORATION_NETWORK: ["search_authors"],  # Use search authors as alternative
             
-            # 趋势分析
+            # Trend analysis
             IntentType.GET_TRENDING_PAPERS: ["get_trending_papers"],
             IntentType.GET_TOP_KEYWORDS: ["get_top_keywords"],
             
-            # 通用对话 - 不需要工具调用
+            # General chat - no tool calls needed
             IntentType.GENERAL_CHAT: [],
             
-            # 未知意图 - 不需要工具调用
+            # Unknown intent - no tool calls needed
             IntentType.UNKNOWN: [],
         }
 
     
     def _create_tasks_for_intent(self, intent) -> List[Task]:
-        """为特定意图创建任务列表"""
+        """Create task list for specific intent"""
         tasks = []
         
-        # 特殊处理复合意图
+        # Special handling for compound intents
         # if intent.type == IntentType.PAPER_REVIEW:
         #     tasks = self._create_paper_review_tasks(intent)
         # elif intent.type == IntentType.PAPER_GENERATION:
         #     tasks = self._create_paper_generation_tasks(intent)
         # else:
-            # 简单意图：直接映射到工具
+            # Simple intent: direct mapping to tools
         tools = self.intent_to_tools.get(intent.type, [])
         for tool_name in tools:
             task = Task(
@@ -91,75 +91,75 @@ class TaskOrchestrator:
                 type=TaskType.MCP_TOOL_CALL,
                 name=f"Call {tool_name}",
                 parameters=self._prepare_tool_parameters(tool_name, intent.parameters),
-                dependencies=[],  # 简单任务无依赖
-                can_parallel=True  # 简单任务可并行
+                dependencies=[],  # No dependencies for simple tasks
+                can_parallel=True  # Simple tasks can be parallel
             )
             tasks.append(task)
         
         return tasks
     
     def _create_paper_review_tasks(self, intent) -> List[Task]:
-        """创建论文审核任务序列 - 有依赖关系"""
+        """Create paper review task sequence - with dependencies"""
         tasks = []
         
-        # 1. 搜索相关论文
+        # 1. Search related papers
         search_task = Task(
             id=str(uuid.uuid4()),
             type=TaskType.MCP_TOOL_CALL,
             name="Search papers for review",
             parameters=self._prepare_tool_parameters("search_papers", intent.parameters),
-            dependencies=[],  # 无依赖
+            dependencies=[],  # No dependencies
             can_parallel=True
         )
         tasks.append(search_task)
         
-        # 2. 获取论文详情（依赖搜索结果）
+        # 2. Get paper details (depends on search results)
         details_task = Task(
             id=str(uuid.uuid4()),
             type=TaskType.MCP_TOOL_CALL,
             name="Get paper details for review",
             parameters={
                 "tool_name": "get_paper_details",
-                "arguments": {}  # 参数将在运行时从搜索结果中获取
+                "arguments": {}  # Parameters will be obtained from search results at runtime
             },
-            dependencies=[search_task.id],  # 依赖搜索任务
-            can_parallel=False  # 有依赖，不能并行
+            dependencies=[search_task.id],  # Depends on search task
+            can_parallel=False  # Has dependencies, cannot be parallel
         )
         tasks.append(details_task)
         
         return tasks
     
     def _create_paper_generation_tasks(self, intent) -> List[Task]:
-        """创建论文生成任务序列 - 可并行"""
+        """Create paper generation task sequence - can be parallel"""
         tasks = []
         
-        # 1. 分析研究趋势
+        # 1. Analyze research trends
         trend_task = Task(
             id=str(uuid.uuid4()),
             type=TaskType.MCP_TOOL_CALL,
             name="Analyze research trends",
             parameters=self._prepare_tool_parameters("get_research_trends", intent.parameters),
             dependencies=[],
-            can_parallel=True  # 可以与搜索任务并行
+            can_parallel=True  # Can be parallel with search task
         )
         tasks.append(trend_task)
         
-        # 2. 搜索相关论文
+        # 2. Search related papers
         search_task = Task(
             id=str(uuid.uuid4()),
             type=TaskType.MCP_TOOL_CALL,
             name="Search papers for generation",
             parameters=self._prepare_tool_parameters("search_papers", intent.parameters),
             dependencies=[],
-            can_parallel=True  # 可以与趋势分析并行
+            can_parallel=True  # Can be parallel with trend analysis
         )
         tasks.append(search_task)
         
         return tasks
     
     def _prepare_tool_parameters(self, tool_name: str, intent_parameters: Dict[str, Any]) -> Dict[str, Any]:
-        """为工具调用准备参数"""
-        # 返回标准化的参数格式，包含工具名和参数
+        """Prepare parameters for tool calls"""
+        # Return standardized parameter format, including tool name and parameters
         tool_arguments = {}
         
         if tool_name == "search_papers":
@@ -205,7 +205,7 @@ class TaskOrchestrator:
                 "analysis_type": intent_parameters.get("analysis_type", "overview")
             }
         
-        # 返回标准化格式
+        # Return standardized format
         return {
             "tool_name": tool_name,
             "arguments": tool_arguments

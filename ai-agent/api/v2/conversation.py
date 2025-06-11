@@ -1,5 +1,5 @@
 """
-会话管理API路由
+Conversation Management API Routes
 """
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from typing import List, Optional
@@ -13,11 +13,11 @@ router = APIRouter()
 
 @router.get("/conversations", response_model=ConversationListResponse)
 async def get_user_conversations(
-    user_id: str = Query(..., description="用户ID"),
-    limit: int = Query(20, description="返回数量限制"),
-    offset: int = Query(0, description="偏移量")
+    user_id: str = Query(..., description="User ID"),
+    limit: int = Query(20, description="Return limit"),
+    offset: int = Query(0, description="Offset")
 ) -> ConversationListResponse:
-    """获取用户的会话列表"""
+    """Get user's conversation list"""
     try:
         logger.info("Getting user conversations", user_id=user_id, limit=limit, offset=offset)
         
@@ -39,9 +39,9 @@ async def get_user_conversations(
 @router.get("/conversations/{conversation_id}", response_model=ConversationResponse)
 async def get_conversation(
     conversation_id: str,
-    include_messages: bool = Query(True, description="是否包含消息列表")
+    include_messages: bool = Query(True, description="Whether to include message list")
 ) -> ConversationResponse:
-    """获取特定会话的详细信息"""
+    """Get conversation details"""
     try:
         logger.info("Getting conversation", conversation_id=conversation_id, include_messages=include_messages)
         
@@ -71,7 +71,7 @@ async def get_conversation(
 async def delete_conversation(
     conversation_id: str
 ):
-    """删除会话"""
+    """Delete conversation"""
     try:
         logger.info("Deleting conversation", conversation_id=conversation_id)
         
@@ -91,9 +91,9 @@ async def delete_conversation(
 @router.put("/conversations/{conversation_id}/title")
 async def update_conversation_title(
     conversation_id: str,
-    title: str = Query(..., description="新的会话标题")
+    title: str = Query(..., description="New conversation title")
 ):
-    """更新会话标题"""
+    """Update conversation title"""
     try:
         logger.info("Updating conversation title", conversation_id=conversation_id, title=title)
         
@@ -113,17 +113,16 @@ async def update_conversation_title(
 @router.get("/conversations/{conversation_id}/messages")
 async def get_conversation_messages(
     conversation_id: str,
-    limit: int = Query(50, description="返回消息数量限制"),
-    offset: int = Query(0, description="偏移量")
+    limit: int = Query(50, description="Message return limit"),
+    offset: int = Query(0, description="Offset")
 ):
-    """获取会话消息列表"""
+    """Get conversation message list"""
     try:
         logger.info("Getting conversation messages", 
                    conversation_id=conversation_id, 
                    limit=limit, 
                    offset=offset)
         
-        # 先检查会话是否存在
         conversation = await conversation_service.get_conversation(conversation_id)
         if not conversation:
             raise HTTPException(status_code=404, detail="Conversation not found")
@@ -150,11 +149,11 @@ async def get_conversation_messages(
 
 @router.get("/conversations/search")
 async def search_conversations(
-    user_id: str = Query(..., description="用户ID"),
-    query: str = Query(..., description="搜索关键词"),
-    limit: int = Query(10, description="返回数量限制")
+    user_id: str = Query(..., description="User ID"),
+    query: str = Query(..., description="Search keyword"),
+    limit: int = Query(10, description="Return limit")
 ):
-    """搜索用户的会话"""
+    """Search user conversations"""
     try:
         logger.info("Searching conversations", user_id=user_id, query=query, limit=limit)
         
@@ -179,9 +178,9 @@ async def search_conversations(
 
 @router.get("/conversations/statistics")
 async def get_conversation_statistics(
-    user_id: str = Query(..., description="用户ID")
+    user_id: str = Query(..., description="User ID")
 ):
-    """获取用户会话统计信息"""
+    """Get user conversation statistics"""
     try:
         logger.info("Getting conversation statistics", user_id=user_id)
         

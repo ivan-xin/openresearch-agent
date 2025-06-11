@@ -1,5 +1,5 @@
 """
-任务执行相关模型 - 简化版（方案1）
+Task execution related models - Simplified version (Plan 1)
 """
 from enum import Enum
 from typing import Dict, Any, Optional, List, Set
@@ -8,18 +8,18 @@ from pydantic import BaseModel, Field
 from dataclasses import dataclass, field
 
 class TaskType(Enum):
-    """任务类型枚举"""
-    # MCP工具调用任务
+    """Task type enumeration"""
+    # MCP tool call task
     MCP_TOOL_CALL = "mcp_tool_call"
     
-    # LLM处理任务
+    # LLM processing task
     LLM_GENERATION = "llm_generation"
     
-    # 响应生成任务
+    # Response generation task
     RESPONSE_GENERATION = "response_generation"
 
 class TaskStatus(Enum):
-    """任务状态枚举"""
+    """Task status enumeration"""
     PENDING = "pending"
     RUNNING = "running"
     COMPLETED = "completed"
@@ -27,26 +27,26 @@ class TaskStatus(Enum):
 
 @dataclass
 class Task:
-    """单个任务 - 包含依赖和并行信息"""
+    """Single task - Including dependency and parallel information"""
     id: str
     type: TaskType
     name: str
     parameters: Dict[str, Any] = field(default_factory=dict)
     status: TaskStatus = TaskStatus.PENDING
-    timeout: int = 30  # 超时时间（秒）
+    timeout: int = 30  # Timeout (seconds)
     
-    # 新增：依赖和并行控制
-    dependencies: List[str] = field(default_factory=list)  # 依赖的任务ID列表
-    can_parallel: bool = True  # 是否可以并行执行
+    # New: Dependency and parallel control
+    dependencies: List[str] = field(default_factory=list)  # List of dependent task IDs
+    can_parallel: bool = True  # Whether can be executed in parallel
     
-    # 时间戳
+    # Timestamps
     created_at: datetime = field(default_factory=datetime.now)
     started_at: Optional[datetime] = None
     completed_at: Optional[datetime] = None
     error_message: Optional[str] = None
     
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
+        """Convert to dictionary"""
         return {
             "id": self.id,
             "type": self.type.value,
@@ -64,35 +64,35 @@ class Task:
     
     @property
     def execution_time(self) -> Optional[float]:
-        """获取执行时间（秒）"""
+        """Get execution time (seconds)"""
         if self.started_at and self.completed_at:
             return (self.completed_at - self.started_at).total_seconds()
         return None
     
     def is_ready(self, completed_task_ids: Set[str]) -> bool:
-        """检查任务是否可以执行（依赖已满足）"""
+        """Check if task can be executed (dependencies satisfied)"""
         if self.status != TaskStatus.PENDING:
             return False
         return all(dep_id in completed_task_ids for dep_id in self.dependencies)
     
     def mark_started(self):
-        """标记任务开始执行"""
+        """Mark task as started"""
         self.status = TaskStatus.RUNNING
         self.started_at = datetime.now()
     
     def mark_completed(self):
-        """标记任务完成"""
+        """Mark task as completed"""
         self.status = TaskStatus.COMPLETED
         self.completed_at = datetime.now()
     
     def mark_failed(self, error_message: str):
-        """标记任务失败"""
+        """Mark task as failed"""
         self.status = TaskStatus.FAILED
         self.completed_at = datetime.now()
         self.error_message = error_message
 
 class TaskResult(BaseModel):
-    """任务执行结果"""
+    """Task execution result"""
     task_id: str
     status: TaskStatus
     data: Optional[Dict[str, Any]] = None
@@ -102,11 +102,11 @@ class TaskResult(BaseModel):
     
     @property
     def is_success(self) -> bool:
-        """判断任务是否成功"""
+        """Check if task is successful"""
         return self.status == TaskStatus.COMPLETED and self.error is None
     
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
+        """Convert to dictionary"""
         return {
             "task_id": self.task_id,
             "status": self.status.value,
@@ -118,14 +118,14 @@ class TaskResult(BaseModel):
         }
 
 class TaskPlan:
-    """简化的任务计划 - 只包含任务列表"""
+    """Simplified task plan - Only contains task list"""
     
     def __init__(self, tasks: List[Task]):
         self.tasks = tasks
         self.created_at = datetime.now()
     
     def get_ready_tasks(self, completed_task_ids: Set[str]) -> List[Task]:
-        """获取可以执行的任务（依赖已满足）"""
+        """Get executable tasks (dependencies satisfied)"""
         ready_tasks = []
         for task in self.tasks:
             if task.is_ready(completed_task_ids):
@@ -133,38 +133,38 @@ class TaskPlan:
         return ready_tasks
     
     def get_parallel_tasks(self, ready_tasks: List[Task]) -> List[Task]:
-        """从就绪任务中筛选可并行执行的任务"""
+        """Filter tasks that can be executed in parallel from ready tasks"""
         return [task for task in ready_tasks if task.can_parallel]
     
     def get_serial_tasks(self, ready_tasks: List[Task]) -> List[Task]:
-        """从就绪任务中筛选必须串行执行的任务"""
+        """Filter tasks that must be executed serially from ready tasks"""
         return [task for task in ready_tasks if not task.can_parallel]
     
     def get_task_by_id(self, task_id: str) -> Optional[Task]:
-        """根据ID获取任务"""
+        """Get task by ID"""
         for task in self.tasks:
             if task.id == task_id:
                 return task
         return None
     
     def get_pending_tasks(self) -> List[Task]:
-        """获取所有待执行的任务"""
+        """Get all pending tasks"""
         return [task for task in self.tasks if task.status == TaskStatus.PENDING]
     
     def get_completed_tasks(self) -> List[Task]:
-        """获取所有已完成的任务"""
+        """Get all completed tasks"""
         return [task for task in self.tasks if task.status == TaskStatus.COMPLETED]
     
     def get_failed_tasks(self) -> List[Task]:
-        """获取所有失败的任务"""
+        """Get all failed tasks"""
         return [task for task in self.tasks if task.status == TaskStatus.FAILED]
     
     def is_completed(self) -> bool:
-        """检查所有任务是否都已完成（成功或失败）"""
+        """Check if all tasks are completed (success or failure)"""
         return all(task.status in [TaskStatus.COMPLETED, TaskStatus.FAILED] for task in self.tasks)
     
     def get_completion_stats(self) -> Dict[str, int]:
-        """获取完成统计信息"""
+        """Get completion statistics"""
         stats = {
             "total": len(self.tasks),
             "pending": 0,
@@ -179,7 +179,7 @@ class TaskPlan:
         return stats
     
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
+        """Convert to dictionary"""
         return {
             "created_at": self.created_at.isoformat(),
             "task_count": len(self.tasks),
@@ -187,15 +187,15 @@ class TaskPlan:
             "completion_stats": self.get_completion_stats()
         }
 
-# 任务构建器类 - 更新以支持依赖和并行控制
+# Task builder class - Updated to support dependency and parallel control
 class TaskBuilder:
-    """任务构建器"""
+    """Task builder"""
     
     @staticmethod
     def mcp_tool_call(tool_name: str, arguments: Dict[str, Any], 
                      task_id: str = None, dependencies: List[str] = None,
                      can_parallel: bool = True) -> Task:
-        """创建MCP工具调用任务"""
+        """Create MCP tool call task"""
         return Task(
             id=task_id or f"mcp_{tool_name}_{datetime.now().strftime('%H%M%S')}",
             type=TaskType.MCP_TOOL_CALL,
@@ -212,7 +212,7 @@ class TaskBuilder:
     def llm_generation(prompt: str, model_params: Dict[str, Any] = None,
                       task_id: str = None, dependencies: List[str] = None,
                       can_parallel: bool = True) -> Task:
-        """创建LLM生成任务"""
+        """Create LLM generation task"""
         return Task(
             id=task_id or f"llm_gen_{datetime.now().strftime('%H%M%S')}",
             type=TaskType.LLM_GENERATION,
@@ -229,7 +229,7 @@ class TaskBuilder:
     def response_generation(content: str, format_type: str = "text",
                            task_id: str = None, dependencies: List[str] = None,
                            can_parallel: bool = False) -> Task:
-        """创建响应生成任务"""
+        """Create response generation task"""
         return Task(
             id=task_id or f"resp_gen_{datetime.now().strftime('%H%M%S')}",
             type=TaskType.RESPONSE_GENERATION,
@@ -239,12 +239,12 @@ class TaskBuilder:
                 "format_type": format_type
             },
             dependencies=dependencies or [],
-            can_parallel=can_parallel  # 响应生成通常需要等待所有数据收集完成
+            can_parallel=can_parallel  # Response generation usually needs to wait for all data to be collected
         )
     
     @staticmethod
     def create_dependent_chain(tasks_config: List[Dict[str, Any]]) -> List[Task]:
-        """创建依赖链任务"""
+        """Create dependent chain tasks"""
         tasks = []
         previous_task_id = None
         
@@ -257,7 +257,7 @@ class TaskBuilder:
                 name=config["name"],
                 parameters=config.get("parameters", {}),
                 dependencies=dependencies,
-                can_parallel=config.get("can_parallel", False)  # 链式任务默认不能并行
+                can_parallel=config.get("can_parallel", False)  # Chain tasks cannot be parallel by default
             )
             
             tasks.append(task)
@@ -268,7 +268,7 @@ class TaskBuilder:
     @staticmethod
     def create_parallel_group(tasks_config: List[Dict[str, Any]], 
                              shared_dependencies: List[str] = None) -> List[Task]:
-        """创建并行任务组"""
+        """Create parallel task group"""
         tasks = []
         
         for i, config in enumerate(tasks_config):
@@ -278,7 +278,7 @@ class TaskBuilder:
                 name=config["name"],
                 parameters=config.get("parameters", {}),
                 dependencies=shared_dependencies or [],
-                can_parallel=True  # 并行组中的任务都可以并行
+                can_parallel=True  # Tasks in parallel group can be executed in parallel
             )
             
             tasks.append(task)

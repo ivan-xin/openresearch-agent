@@ -1,5 +1,5 @@
 """
-简化的上下文管理器 - 基于PostgreSQL
+Simplified Context Manager - Based on PostgreSQL
 """
 import uuid
 from typing import Optional, List
@@ -14,15 +14,15 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 class ContextManager:
-    """上下文管理器"""
+    """Context Manager"""
     
     async def initialize(self):
-        """初始化上下文管理器"""
+        """Initialize context manager"""
         try:
-            # 初始化数据库
+            # Initialize database
             await db_manager.initialize()
             
-            # 创建数据表
+            # Create database tables
             await db_manager.create_tables()
             
             logger.info("Context manager initialized successfully")
@@ -32,20 +32,20 @@ class ContextManager:
             raise
     
     async def get_conversation(self, conversation_id: str) -> Optional[Conversation]:
-        """获取会话及其消息"""
+        """Get conversation and its messages"""
         try:
-            # 获取会话基本信息
+            # Get basic conversation information
             conversation = await conversation_repo.get_by_id(conversation_id)
             if not conversation:
                 return None
             
-            # 获取会话消息 - 直接使用settings中的配置
+            # Get conversation messages - directly use settings configuration
             messages = await message_repo.get_by_conversation_id(
                 conversation_id, 
                 limit=settings.max_conversation_length
             )
             
-            # 将消息添加到会话对象（这里需要扩展Conversation模型）
+            # Add messages to conversation object (need to extend Conversation model)
             conversation.messages = messages
             
             return conversation
@@ -55,9 +55,9 @@ class ContextManager:
             return None
     
     async def create_conversation(self, user_id: str, conversation_id: Optional[str] = None) -> Conversation:
-        """创建新会话"""
+        """Create new conversation"""
         try:
-            # 如果提供了conversation_id，先检查是否已存在
+            # If conversation_id is provided, check if it already exists
             if conversation_id:
                 existing = await conversation_repo.get_by_id(conversation_id)
                 if existing:
@@ -70,7 +70,7 @@ class ContextManager:
             )
             
             await conversation_repo.create(conversation)
-            conversation.messages = []  # 初始化空消息列表
+            conversation.messages = []  # Initialize empty message list
             
             logger.info("New conversation created", conversation_id=conversation.id, user_id=user_id)
             return conversation
@@ -80,18 +80,18 @@ class ContextManager:
             raise
     
     async def update_conversation(self, conversation: Conversation):
-        """更新会话"""
+        """Update conversation"""
         try:
-            # 更新会话基本信息
+            # Update basic conversation information
             await conversation_repo.update(conversation)
             
-            # 如果有新消息，保存消息
+            # If there are new messages, save them
             if hasattr(conversation, 'messages') and conversation.messages:
-                # 获取已存在的消息数量
+                # Get number of existing messages
                 existing_messages = await message_repo.get_by_conversation_id(conversation.id)
                 existing_count = len(existing_messages)
                 
-                # 只保存新消息
+                # Only save new messages
                 new_messages = conversation.messages[existing_count:]
                 for message in new_messages:
                     message.conversation_id = conversation.id
@@ -104,7 +104,7 @@ class ContextManager:
             raise
     
     async def add_message(self, conversation_id: str, role: str, content: str, metadata: dict = None) -> Message:
-        """添加消息到会话"""
+        """Add message to conversation"""
         try:
             message = Message(
                 conversation_id=conversation_id,
@@ -115,7 +115,7 @@ class ContextManager:
             
             await message_repo.create(message)
             
-            # 更新会话的更新时间
+            # Update conversation's update time
             conversation = await conversation_repo.get_by_id(conversation_id)
             if conversation:
                 await conversation_repo.update(conversation)
@@ -128,16 +128,16 @@ class ContextManager:
             raise
     
     async def get_user_conversations(self, user_id: str, limit: int = 50) -> List[Conversation]:
-        """获取用户的会话列表"""
+        """Get user's conversation list"""
         try:
             conversations = await conversation_repo.get_by_user_id(user_id, limit)
             
-            # 为每个会话加载最近的几条消息作为预览
+            # Load recent messages for each conversation as preview
             for conversation in conversations:
                 messages = await message_repo.get_by_conversation_id(conversation.id, limit=5)
                 conversation.messages = messages
                 
-                # 如果没有标题，根据第一条用户消息生成
+                # If no title, generate from first user message
                 if not conversation.title and messages:
                     first_user_message = next((msg for msg in messages if msg.role == "user"), None)
                     if first_user_message:
@@ -151,12 +151,12 @@ class ContextManager:
             raise
     
     async def delete_conversation(self, conversation_id: str) -> bool:
-        """删除会话"""
+        """Delete conversation"""
         try:
-            # 删除会话消息
+            # Delete conversation messages
             await message_repo.delete_by_conversation_id(conversation_id)
             
-            # 软删除会话
+            # Soft delete conversation
             success = await conversation_repo.delete(conversation_id)
             
             if success:
@@ -169,7 +169,7 @@ class ContextManager:
             return False
     
     async def cleanup_old_conversations(self, days: int = 30) -> int:
-        """清理旧会话"""
+        """Clean up old conversations"""
         try:
             cleaned_count = await conversation_repo.cleanup_old_conversations(days)
             logger.info("Old conversations cleanup completed", cleaned_count=cleaned_count)
@@ -180,7 +180,7 @@ class ContextManager:
             return 0
     
     async def get_conversation_stats(self, user_id: str) -> dict:
-        """获取用户会话统计"""
+        """Get user conversation statistics"""
         try:
             conversations = await conversation_repo.get_by_user_id(user_id, limit=1000)
             
@@ -202,7 +202,7 @@ class ContextManager:
             return {}
     
     async def cleanup(self):
-        """清理资源"""
+        """Clean up resources"""
         try:
             await db_manager.close()
             logger.info("Context manager cleanup completed")

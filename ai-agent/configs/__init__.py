@@ -1,5 +1,5 @@
 """
-配置包
+Configuration package
 """
 from .settings import settings
 from .database_config import database_config

@@ -1,5 +1,5 @@
 """
-中间件包
+Middleware
 """
 from .error_handler import add_error_handlers
 from .logging import add_logging_middleware, LoggingMiddleware

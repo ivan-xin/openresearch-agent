@@ -1,5 +1,5 @@
 """
-错误处理中间件
+Error handling middleware
 """
 from fastapi import FastAPI, HTTPException
 from utils.exceptions import (
@@ -10,13 +10,13 @@ from utils.exceptions import (
 )
 
 def add_error_handlers(app: FastAPI):
-    """添加错误处理器"""
+    """Add error handlers"""
     
-    # 业务错误处理（包括AgentError等子类）
+    # Business error handling (including AgentError subclasses)
     app.add_exception_handler(BusinessError, business_error_handler)
     
-    # HTTP错误处理
+    # HTTP error handling
     app.add_exception_handler(HTTPException, http_error_handler)
     
-    # 通用错误处理
+    # General error handling
     app.add_exception_handler(Exception, general_error_handler)

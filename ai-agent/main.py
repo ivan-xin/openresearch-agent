@@ -1,21 +1,21 @@
 """
-AI Agent 应用入口
+AI Agent Application Entry
 """
 import asyncio
 import uvicorn
 from fastapi import FastAPI
 from contextlib import asynccontextmanager
 
-# 导入统一的API路由
+# Import unified API routes
 from api.routes import api_v1_router, api_v2_router
 from api.middleware.error_handler import add_error_handlers
 from api.middleware.logging import add_logging_middleware
 
-# 数据层
+# Data layer
 from data import initialize_data_layer, cleanup_data_layer
 from core import AcademicAgent
 
-# 配置和工具
+# Configuration and utilities
 from configs.settings import settings
 from utils.logger import setup_logging, get_logger
 
@@ -23,34 +23,34 @@ from utils.logger import setup_logging, get_logger
 setup_logging()
 logger = get_logger(__name__)
 
-# 全局Agent实例
+# Global Agent instance
 agent_instance = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    """应用生命周期管理"""
+    """Application lifecycle management"""
     global agent_instance
     
-    # 启动时初始化
+    # Initialize on startup
     logger.info("Starting AI Agent application")
     logger.info(f"Debug Mode: {settings.debug}")
     logger.info(f"Log Level: {settings.log_level}")
     try:
-        # 1. 初始化数据层
+        # 1. Initialize data layer
         logger.info("Initializing data layer...")
         data_success = await initialize_data_layer()
         if not data_success:
             raise Exception("Failed to initialize data layer")
         logger.info("Data layer initialized successfully")
         
-        # 2. 初始化Agent
+        # 2. Initialize Agent
         logger.info("Initializing AI Agent...")
         agent_instance = AcademicAgent()
         await agent_instance.initialize()
         app.state.agent = agent_instance
         logger.info("AI Agent initialized successfully")
         
-        # 3. 应用就绪
+        # 3. Application ready
         logger.info("AI Agent application started successfully")
         yield
         
@@ -58,10 +58,10 @@ async def lifespan(app: FastAPI):
         logger.error("Failed to initialize AI Agent application", error=str(e))
         raise
     finally:
-        # 关闭时清理
+        # Cleanup on shutdown
         logger.info("Shutting down AI Agent application...")
         
-        # 清理Agent
+        # Cleanup Agent
         if agent_instance:
             try:
                 await agent_instance.cleanup()
@@ -69,7 +69,7 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.error("Error during agent cleanup", error=str(e))
         
-        # 清理数据层
+        # Cleanup data layer
         try:
             await cleanup_data_layer()
             logger.info("Data layer cleanup completed")
@@ -79,27 +79,27 @@ async def lifespan(app: FastAPI):
         logger.info("AI Agent application shutdown completed")
 
 def create_app() -> FastAPI:
-    """创建FastAPI应用"""
+    """Create FastAPI application"""
     app = FastAPI(
         title=settings.app_name,
         version=settings.app_version,
         description="AI Agent for Academic Research - MVP Version",
         debug=settings.debug,
         lifespan=lifespan,
-        # API文档配置
+        # API documentation configuration
         docs_url="/docs" if settings.debug else None,
         redoc_url="/redoc" if settings.debug else None,
     )
     
-    # 添加中间件（顺序很重要）
+    # Add middleware (order is important)
     add_error_handlers(app)
     add_logging_middleware(app)
     
-    # 注册API路由 - 现在只需要一行！
+    # Register API routes - now just one line!
     app.include_router(api_v1_router, prefix="/api/v1")
     app.include_router(api_v2_router, prefix="/api/v2")
     
-    # 调试：打印所有路由
+    # Debug: print all routes
     if settings.debug:
         logger.info("=== Registered Routes ===")
         for route in app.routes:
@@ -108,10 +108,10 @@ def create_app() -> FastAPI:
                 logger.info(f"  {methods} -> {route.path}")
         logger.info("========================")
 
-    # 添加根路径处理
+    # Add root path handler
     @app.get("/", tags=["root"])
     async def root():
-        """根路径 - 服务信息"""
+        """Root path - Service information"""
         return {
             "service": settings.app_name,
             "version": settings.app_version,
@@ -121,10 +121,10 @@ def create_app() -> FastAPI:
             "api_prefixes": ["/api/v1", "/api/v2"]
         }
     
-    # 添加API信息路径
+    # Add API information path
     @app.get("/api", tags=["root"])
     async def api_info():
-        """API信息"""
+        """API information"""
         return {
             "service": settings.app_name,
             "version": settings.app_version,
@@ -145,7 +145,7 @@ def create_app() -> FastAPI:
     
     @app.get("/api/v2", tags=["v2"])
     async def api_v2_info():
-        """API V2 信息"""
+        """API V2 information"""
         return {
             "version": "v2",
             "status": "beta",
@@ -158,11 +158,11 @@ def create_app() -> FastAPI:
     
     return app
 
-# 创建应用实例
+# Create application instance
 app = create_app()
 
 if __name__ == "__main__":
-    # 开发环境运行配置
+    # Development environment running configuration
     uvicorn_config = {
         "app": "main:app",
         "host": settings.host,
@@ -173,10 +173,10 @@ if __name__ == "__main__":
         "use_colors": True,
     }
     
-    # 如果是生产环境，添加额外配置
+    # If in production environment, add additional configuration
     if not settings.debug:
         uvicorn_config.update({
-            "workers": 1,  # MVP版本使用单进程
+            "workers": 1,  # Single process for MVP version
             "reload": False,
             "access_log": False,
         })

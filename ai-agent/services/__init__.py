@@ -1,36 +1,36 @@
 """
-服务层包 - MVP版本
+Service Layer Package - MVP Version
 """
 from .llm_service import llm_service, LLMService
 from .conversation_service import conversation_service, ConversationService
 
-# MCP客户端 - 两种协议版本
+# MCP Client - Two Protocol Versions
 from .mcp_client_http import mcp_client as mcp_client_http, MCPClient as MCPClientHTTP
 from .mcp_client_stdio import mcp_client_stdio, MCPClient as MCPClientStdio
 from .mcp_client_oneshot import mcp_client_oneshot,MCPClient as MCPClientOneshot
 
-# 默认使用 stdio 协议（推荐）
+# Default using stdio protocol (recommended)
 mcp_client = mcp_client_stdio
 MCPClient = MCPClientStdio
 
 __all__ = [
-    # LLM服务
+    # LLM Service
     "llm_service",
     "LLMService",
     
-    # MCP客户端 - 默认 stdio 版本
+    # MCP Client - Default stdio version
     "mcp_client_http", 
     "MCPClient",
     
-    # MCP客户端 - HTTP 版本（备用）
+    # MCP Client - HTTP version (backup)
     "mcp_client_http",
     "MCPClientHTTP",
     
-    # MCP客户端 - stdio 版本
+    # MCP Client - stdio version
     "mcp_client_stdio",
     "MCPClientStdio",
     
-    # 对话服务
+    # Conversation Service
     "conversation_service",
     "ConversationService"
 ]

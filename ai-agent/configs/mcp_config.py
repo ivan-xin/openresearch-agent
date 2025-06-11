@@ -1,5 +1,5 @@
 """
-MCP服务器配置
+MCP Server Configuration
 """
 from pydantic_settings import BaseSettings
 from pydantic import Field
@@ -8,9 +8,8 @@ import json
 import os
 
 class MCPConfig(BaseSettings):
-    """MCP服务器配置"""
+    """MCP Server Configuration"""
     
-    # stdio 协议配置
     server_command: List[str] = Field(
         default=["python", "../../../openresearch-mcp-server/src/main.py"],
         env="MCP_SERVER_COMMAND"
@@ -22,7 +21,6 @@ class MCPConfig(BaseSettings):
     max_retries: int = Field(default=3, env="MCP_MAX_RETRIES")
     retry_delay: float = Field(default=1.0, env="MCP_RETRY_DELAY")
     
-    # 日志配置
     enable_debug_log: bool = Field(default=True, env="MCP_ENABLE_DEBUG_LOG")
     debug_log_file: str = Field(default="logs/mcp_debug.log", env="MCP_DEBUG_LOG_FILE")
     
@@ -32,33 +30,28 @@ class MCPConfig(BaseSettings):
     
     @property
     def mcp_cwd(self) -> str:
-        """MCP服务器工作目录"""
-        # 从当前文件位置计算到 openresearch-mcp-server 的相对路径
-        # 当前文件: ai-agent/configs/mcp_config.py
-        # 目标目录: ../../../openresearch-mcp-server
-        current_dir = os.path.dirname(os.path.abspath(__file__))  # configs目录
+        """MCP Server Working Directory"""
+        current_dir = os.path.dirname(os.path.abspath(__file__))
         return os.path.normpath(os.path.join(current_dir, "../../../openresearch-mcp-server"))
     
     @property
     def mcp_command(self) -> str:
-        """MCP服务器主文件路径"""
+        """MCP Server Main File Path"""
         return os.path.join(self.mcp_cwd, "src/main.py")
     
     @property
     def mcp_python(self) -> str:
-        """MCP服务器Python解释器路径"""
+        """MCP Server Python Interpreter Path"""
         return os.path.join(self.mcp_cwd, "venv/bin/python")
     
     @property
     def debug_log_path(self) -> str:
-        """调试日志文件完整路径"""
+        """Full Path of Debug Log File"""
         if os.path.isabs(self.debug_log_file):
             return self.debug_log_file
         
-        # 相对路径处理
         full_path = os.path.join(self.mcp_cwd, self.debug_log_file)
         
-        # 确保目录存在
         log_dir = os.path.dirname(full_path)
         if not os.path.exists(log_dir):
             try:
@@ -71,17 +64,16 @@ class MCPConfig(BaseSettings):
 
     @property
     def actual_server_command(self) -> List[str]:
-        """实际的服务器命令（使用正确的Python路径）"""
+        """Actual Server Command (Using Correct Python Path)"""
         return [self.mcp_python, self.mcp_command]
         
     @property
     def server_command_with_log_redirect(self) -> List[str]:
-        """带日志重定向的服务器命令"""
+        """Server Command with Log Redirection"""
         if self.enable_debug_log:
             log_path = self.debug_log_path
             print(f"Using log file: {log_path}")
             
-            # 同时重定向stdout和stderr到日志文件
             return [
                 "bash", "-c", 
                 f'"{self.mcp_python}" "{self.mcp_command}" 2>> "{log_path}"'
@@ -89,8 +81,7 @@ class MCPConfig(BaseSettings):
         return self.actual_server_command
 
     def model_post_init(self, __context):
-        """初始化后处理"""
-        # 如果环境变量中有 MCP_SERVER_COMMAND，尝试解析
+        """Post-initialization Processing"""
         if hasattr(self, '_env_server_command'):
             try:
                 if isinstance(self._env_server_command, str):
@@ -103,6 +94,5 @@ class MCPConfig(BaseSettings):
         "env_file_encoding": "utf-8",
         "extra": "allow"
     }
-
-# 全局MCP配置实例
+    
 mcp_config = MCPConfig()

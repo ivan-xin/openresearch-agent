@@ -1,20 +1,20 @@
 """
-会话数据访问层
+Conversation Data Access Layer
 """
 import json
 from typing import List, Optional, Dict, Any
 from datetime import datetime, timedelta
 from data.database import db_manager
-from data.models.conversation import Conversation  # 使用 data.models.conversation
+from data.models.conversation import Conversation  # Use data.models.conversation
 from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
 class ConversationRepository:
-    """会话数据访问类"""
+    """Conversation Data Access Class"""
     
     def _parse_metadata(self, metadata_value: Any) -> Dict[str, Any]:
-        """解析metadata字段"""
+        """Parse metadata field"""
         if metadata_value is None:
             return {}
         if isinstance(metadata_value, dict):
@@ -28,7 +28,7 @@ class ConversationRepository:
         return {}
     
     async def create(self, conversation: Conversation) -> Conversation:
-        """创建新会话"""
+        """Create new conversation"""
         try:
             async with db_manager.get_connection() as conn:
                 await conn.execute(
@@ -55,7 +55,7 @@ class ConversationRepository:
             raise
     
     async def get_by_id(self, conversation_id: str) -> Optional[Conversation]:
-        """根据ID获取会话"""
+        """Get conversation by ID"""
         try:
             async with db_manager.get_connection() as conn:
                 row = await conn.fetchrow(
@@ -77,7 +77,7 @@ class ConversationRepository:
                     updated_at=row["updated_at"],
                     is_active=row["is_active"],
                     message_count=row["message_count"] or 0,
-                    metadata=self._parse_metadata(row["metadata"])  # 修复这里
+                    metadata=self._parse_metadata(row["metadata"])  # Fix here
                 )
             
             return None
@@ -87,7 +87,7 @@ class ConversationRepository:
             raise
     
     async def get_by_user_id(self, user_id: str, limit: int = 50, offset: int = 0) -> List[Conversation]:
-        """获取用户的会话列表"""
+        """Get user's conversation list"""
         try:
             async with db_manager.get_connection() as conn:
                 rows = await conn.fetch(
@@ -114,7 +114,7 @@ class ConversationRepository:
                     updated_at=row["updated_at"],
                     is_active=row["is_active"],
                     message_count=row["message_count"] or 0,
-                    metadata=self._parse_metadata(row["metadata"])  # 修复这里
+                    metadata=self._parse_metadata(row["metadata"])  # Fix here
                 ))
             
             return conversations
@@ -124,7 +124,7 @@ class ConversationRepository:
             raise
     
     async def update(self, conversation: Conversation) -> Conversation:
-        """更新会话"""
+        """Update conversation"""
         try:
             conversation.updated_at = datetime.now()
             
@@ -151,7 +151,7 @@ class ConversationRepository:
             raise
     
     async def delete(self, conversation_id: str) -> bool:
-        """删除会话（软删除）"""
+        """Delete conversation (soft delete)"""
         try:
             async with db_manager.get_connection() as conn:
                 result = await conn.execute(
@@ -163,7 +163,7 @@ class ConversationRepository:
                     conversation_id
                 )
             
-            # 检查是否更新了记录
+            # Check if records were updated
             rows_affected = int(result.split()[-1]) if result.split() else 0
             success = rows_affected > 0
             
@@ -177,7 +177,7 @@ class ConversationRepository:
             raise
     
     async def cleanup_old_conversations(self, days: int = 30) -> int:
-        """清理旧会话"""
+        """Clean up old conversations"""
         try:
             cutoff_date = datetime.now() - timedelta(days=days)
             
@@ -191,7 +191,7 @@ class ConversationRepository:
                     cutoff_date
                 )
             
-            # 解析更新的行数
+            # Parse number of updated rows
             rows_affected = int(result.split()[-1]) if result.split() else 0
             logger.info("Old conversations cleaned up", count=rows_affected, days=days)
             
@@ -201,5 +201,5 @@ class ConversationRepository:
             logger.error("Failed to cleanup old conversations", error=str(e))
             raise
 
-# 全局会话仓库实例
+
 conversation_repo = ConversationRepository()

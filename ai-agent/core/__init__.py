@@ -1,5 +1,5 @@
 """
-核心模块包
+Core module package
 """
 from .agent import AcademicAgent
 from .intent_analyzer import IntentAnalyzer

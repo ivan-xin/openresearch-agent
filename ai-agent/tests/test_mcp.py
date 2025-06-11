@@ -1,11 +1,11 @@
 """
-测试 MCP 连接
+Test MCP Connection
 """
 import asyncio
 import sys
 from pathlib import Path
 
-# 添加项目根目录到路径
+# Add project root directory to path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
@@ -13,22 +13,22 @@ from services import mcp_client
 
 async def test_mcp():
     try:
-        print("=== 测试 MCP 一次性调用 ===")
+        print("=== Testing MCP Single Call ===")
         
-        # 初始化
+        # Initialize
         await mcp_client.initialize()
-        print("✅ 初始化成功")
+        print("✅ Initialization successful")
         
-        # 获取工具列表
+        # Get tool list
         tools = mcp_client.get_available_tools()
-        print(f"✅ 可用工具: {[t.get('name') for t in tools]}")
+        print(f"✅ Available tools: {[t.get('name') for t in tools]}")
         
-        # 测试搜索论文
+        # Test paper search
         result = await mcp_client.search_papers("machine learning", limit=3)
-        print(f"✅ 搜索结果: {result}")
+        print(f"✅ Search results: {result}")
         
     except Exception as e:
-        print(f"❌ 测试失败: {e}")
+        print(f"❌ Test failed: {e}")
         import traceback
         traceback.print_exc()
 

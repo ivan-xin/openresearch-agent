@@ -1,5 +1,5 @@
 """
-消息数据访问层
+Message Data Access Layer
 """
 import json
 from typing import List, Optional
@@ -10,10 +10,10 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 class MessageRepository:
-    """消息数据访问类"""
+    """Message Data Access Class"""
     
     async def create(self, message: Message) -> Message:
-        """创建新消息"""
+        """Create new message"""
         try:
             async with db_manager.get_connection() as conn:
                 await conn.execute(
@@ -37,7 +37,7 @@ class MessageRepository:
             raise
     
     async def get_by_conversation_id(self, conversation_id: str, limit: int = 100) -> List[Message]:
-        """获取会话的消息列表"""
+        """Get conversation message list"""
         try:
             async with db_manager.get_connection() as conn:
                 rows = await conn.fetch(
@@ -55,8 +55,8 @@ class MessageRepository:
             messages = []
             for row in rows:
                 messages.append(Message(
-                    id=str(row["id"]),  # 确保UUID转换为字符串
-                    conversation_id=str(row["conversation_id"]),  # 确保UUID转换为字符串
+                    id=str(row["id"]),  # Ensure UUID is converted to string
+                    conversation_id=str(row["conversation_id"]),  # Ensure UUID is converted to string
                     role=row["role"],
                     content=row["content"],
                     metadata=row["metadata"] or {},
@@ -70,7 +70,7 @@ class MessageRepository:
             raise
     
     async def delete_by_conversation_id(self, conversation_id: str) -> int:
-        """删除会话的所有消息"""
+        """Delete all messages in the conversation"""
         try:
             async with db_manager.get_connection() as conn:
                 result = await conn.execute(
@@ -81,7 +81,7 @@ class MessageRepository:
                     conversation_id
                 )
             
-            # 解析删除的行数
+            # Parse the number of deleted rows
             deleted_count = int(result.split()[-1]) if result.split() else 0
             logger.info("Messages deleted", conversation_id=conversation_id, count=deleted_count)
             
@@ -91,5 +91,5 @@ class MessageRepository:
             logger.error("Failed to delete messages", conversation_id=conversation_id, error=str(e))
             raise
 
-# 全局消息仓库实例
+
 message_repo = MessageRepository()

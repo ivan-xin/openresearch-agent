@@ -1,13 +1,13 @@
 """
-时间工具 - MVP版本
+Time utilities - MVP version
 """
 import time
 from datetime import datetime, timezone
 
 def now() -> datetime:
-    """获取当前UTC时间"""
+    """Get current UTC time"""
     return datetime.now(timezone.utc)
 
 def now_ms() -> int:
-    """获取当前毫秒时间戳"""
+    """Get current timestamp in milliseconds"""
     return int(time.time() * 1000)

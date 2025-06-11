@@ -1,5 +1,5 @@
 """
-消息数据模型
+Message data model
 """
 import uuid
 from datetime import datetime
@@ -8,7 +8,7 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Message:
-    """消息模型"""
+    """Message Model"""
     
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     conversation_id: str = ""
@@ -18,7 +18,7 @@ class Message:
     created_at: datetime = field(default_factory=datetime.now)
     
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
+        """Convert to dictionary"""
         return {
             "id": self.id,
             "conversation_id": self.conversation_id,
@@ -30,7 +30,7 @@ class Message:
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Message":
-        """从字典创建实例"""
+        """Create instance from dictionary"""
         return cls(
             id=data["id"],
             conversation_id=data["conversation_id"],

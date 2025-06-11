@@ -1,5 +1,5 @@
 """
-业务模型包
+Business model package
 """
 from .intent import (
     IntentType,

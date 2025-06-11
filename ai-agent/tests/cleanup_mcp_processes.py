@@ -4,39 +4,39 @@ import sys
 import os
 
 def cleanup_mcp_processes():
-    print("=== 清理MCP进程 ===")
+    print("=== Cleaning up MCP processes ===")
     
     try:
-        # 查找MCP相关进程
+        # Find MCP related processes
         result = subprocess.run([
             'pgrep', '-f', 'openresearch-mcp-server'
         ], capture_output=True, text=True)
         
         if result.stdout.strip():
             pids = result.stdout.strip().split('\n')
-            print(f"找到MCP进程: {pids}")
+            print(f"Found MCP processes: {pids}")
             
             for pid in pids:
                 try:
-                    print(f"终止进程 {pid}")
+                    print(f"Terminating process {pid}")
                     subprocess.run(['kill', '-9', pid], check=True)
-                    print(f"✅ 进程 {pid} 已终止")
+                    print(f"✅ Process {pid} terminated")
                 except Exception as e:
-                    print(f"❌ 无法终止进程 {pid}: {e}")
+                    print(f"❌ Cannot terminate process {pid}: {e}")
         else:
-            print("没有找到MCP进程")
+            print("No MCP processes found")
             
     except Exception as e:
-        print(f"清理过程出错: {e}")
+        print(f"Cleanup process error: {e}")
     
-    # 清空日志文件
+    # Clear log file
     log_path = "/Users/zhouxin/Workspace/ai-space/openresearch/openresearch-mcp-server/logs/mcp_debug.log"
     try:
         with open(log_path, 'w') as f:
             f.write("")
-        print(f"✅ 已清空日志文件: {log_path}")
+        print(f"✅ Log file cleared: {log_path}")
     except Exception as e:
-        print(f"❌ 清空日志文件失败: {e}")
+        print(f"❌ Failed to clear log file: {e}")
 
 if __name__ == "__main__":
     cleanup_mcp_processes()

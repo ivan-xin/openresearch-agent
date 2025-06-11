@@ -1,5 +1,5 @@
 """
-MCP客户端服务 - MVP版本
+MCP Client Service - MVP Version
 """
 import asyncio
 import aiohttp
@@ -13,7 +13,7 @@ from models.task import Task, TaskResult, TaskStatus
 logger = structlog.get_logger()
 
 class MCPClient:
-    """MCP客户端"""
+    """MCP Client"""
     
     def __init__(self):
         self.session: Optional[aiohttp.ClientSession] = None
@@ -21,22 +21,22 @@ class MCPClient:
         self._tools_loaded = False
     
     async def __aenter__(self):
-        """异步上下文管理器入口"""
+        """Async context manager entry"""
         await self.initialize()
         return self
     
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        """异步上下文管理器出口"""
+        """Async context manager exit"""
         await self.cleanup()
     
     async def initialize(self):
-        """初始化MCP客户端"""
+        """Initialize MCP client"""
         try:
-            # 创建HTTP会话
+            # Create HTTP session
             timeout = aiohttp.ClientTimeout(total=mcp_config.timeout)
             self.session = aiohttp.ClientSession(timeout=timeout)
             
-            # 加载可用工具
+            # Load available tools
             await self._load_available_tools()
             
             logger.info(
@@ -50,7 +50,7 @@ class MCPClient:
             raise
     
     async def _load_available_tools(self):
-        """加载可用工具列表"""
+        """Load available tools list"""
         try:
             url = f"{mcp_config.base_url}/tools"
             
@@ -73,15 +73,15 @@ class MCPClient:
                     
         except Exception as e:
             logger.error("Error loading available tools", error=str(e))
-            # 继续运行，但工具列表为空
+            # Continue running but with empty tools list
     
     async def call_tool(self, tool_name: str, arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """调用MCP工具"""
+        """Call MCP tool"""
         try:
             if not self.session:
                 raise RuntimeError("MCP client not initialized")
             
-            # 构建请求数据
+            # Build request data
             request_data = {
                 "name": tool_name,
                 "arguments": arguments
@@ -95,7 +95,7 @@ class MCPClient:
                 arguments=arguments
             )
             
-            # 发送请求
+            # Send request
             async with self.session.post(url, json=request_data) as response:
                 response_data = await response.json()
                 
@@ -126,7 +126,7 @@ class MCPClient:
     
     async def call_tool_with_retry(self, tool_name: str, 
                                   arguments: Dict[str, Any]) -> Dict[str, Any]:
-        """带重试的工具调用"""
+        """Call tool with retry"""
         last_error = None
         
         for attempt in range(mcp_config.max_retries):
@@ -136,7 +136,7 @@ class MCPClient:
             except Exception as e:
                 last_error = e
                 if attempt < mcp_config.max_retries - 1:
-                    wait_time = mcp_config.retry_delay * (2 ** attempt)  # 指数退避
+                    wait_time = mcp_config.retry_delay * (2 ** attempt)  # Exponential backoff
                     logger.warning(
                         "MCP tool call failed, retrying",
                         tool_name=tool_name,
@@ -153,84 +153,84 @@ class MCPClient:
                         error=str(e)
                     )
         
-        # 所有重试都失败了
+        # All retries failed
         raise last_error
     
     async def search_papers(self, query: str, limit: int = 10) -> Dict[str, Any]:
-        """搜索论文"""
+        """Search papers"""
         return await self.call_tool_with_retry(
             "search_papers",
             {"query": query, "limit": limit}
         )
     
     async def get_paper_details(self, paper_id: str) -> Dict[str, Any]:
-        """获取论文详情"""
+        """Get paper details"""
         return await self.call_tool_with_retry(
             "get_paper_details",
             {"paper_id": paper_id}
         )
     
     async def search_authors(self, query: str, limit: int = 10) -> Dict[str, Any]:
-        """搜索作者"""
+        """Search authors"""
         return await self.call_tool_with_retry(
             "search_authors",
             {"query": query, "limit": limit}
         )
     
     async def get_author_details(self, author_id: str) -> Dict[str, Any]:
-        """获取作者详情"""
+        """Get author details"""
         return await self.call_tool_with_retry(
             "get_author_details",
             {"author_id": author_id}
         )
     
     async def get_citation_network(self, paper_id: str, depth: int = 2) -> Dict[str, Any]:
-        """获取引用网络"""
+        """Get citation network"""
         return await self.call_tool_with_retry(
             "get_citation_network",
             {"paper_id": paper_id, "depth": depth}
         )
     
     async def get_collaboration_network(self, author_id: str, depth: int = 2) -> Dict[str, Any]:
-        """获取合作网络"""
+        """Get collaboration network"""
         return await self.call_tool_with_retry(
             "get_collaboration_network",
             {"author_id": author_id, "depth": depth}
         )
     
     async def get_research_trends(self, topic: str, time_range: str = "5y") -> Dict[str, Any]:
-        """获取研究趋势"""
+        """Get research trends"""
         return await self.call_tool_with_retry(
             "get_research_trends",
             {"topic": topic, "time_range": time_range}
         )
     
     async def analyze_research_landscape(self, field: str) -> Dict[str, Any]:
-        """分析研究全景"""
+        """Analyze research landscape"""
         return await self.call_tool_with_retry(
             "analyze_research_landscape",
             {"field": field}
         )
     
     async def execute_task(self, task: Task) -> TaskResult:
-        """执行MCP任务"""
+        """Execute MCP task"""
         try:
             task.status = TaskStatus.RUNNING
             start_time = datetime.now()
             
             logger.info("Executing MCP task", task_id=task.id, task_name=task.name)
             
-            # 获取任务参数
+            # Get task parameters
             tool_name = task.parameters.get("tool_name")
             arguments = task.parameters.get("arguments", {})
             
             if not tool_name:
                 raise ValueError("Tool name is required for MCP task")
             
-            # 调用工具
+            # Call tool
             result_data = await self.call_tool_with_retry(tool_name, arguments)
             
-            # 计算执行时间
+            # Calculate execution time
             end_time = datetime.now()
             execution_time = (end_time - start_time).total_seconds()
             
@@ -260,7 +260,7 @@ class MCPClient:
             )
     
     async def health_check(self) -> Dict[str, Any]:
-        """健康检查"""
+        """Health check"""
         try:
             if not self.session:
                 return {
@@ -268,7 +268,7 @@ class MCPClient:
                     "error": "Client not initialized"
                 }
             
-            # 检查服务器连接
+            # Check server connection
             url = f"{mcp_config.base_url}/health"
             async with self.session.get(url) as response:
                 if response.status == 200:
@@ -292,15 +292,15 @@ class MCPClient:
             }
     
     def get_available_tools(self) -> List[Dict[str, Any]]:
-        """获取可用工具列表"""
+        """Get available tools list"""
         return self.available_tools.copy()
     
     def is_tool_available(self, tool_name: str) -> bool:
-        """检查工具是否可用"""
+        """Check if tool is available"""
         return any(tool.get("name") == tool_name for tool in self.available_tools)
     
     async def cleanup(self):
-        """清理资源"""
+        """Clean up resources"""
         try:
             if self.session:
                 await self.session.close()
@@ -308,6 +308,5 @@ class MCPClient:
         except Exception as e:
             logger.error("Error during MCP client cleanup", error=str(e))
 
-# 全局MCP客户端实例
 mcp_client = MCPClient()
 

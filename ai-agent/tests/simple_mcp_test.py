@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-测试MCP服务器的search_authors工具
+Test the search_authors tool of MCP server
 """
 import asyncio
 import json
@@ -9,7 +9,7 @@ import os
 from datetime import datetime
 import subprocess
 
-# MCP服务器配置
+# MCP Server Configuration
 MCP_SERVER_PATH = "/Users/zhouxin/Workspace/ai-space/openresearch/openresearch-mcp-server"
 MCP_PYTHON = os.path.join(MCP_SERVER_PATH, "venv/bin/python")
 MCP_COMMAND = os.path.join(MCP_SERVER_PATH, "src/main.py")
@@ -24,25 +24,25 @@ class MCPTester:
         return self.request_id
     
     async def start_server(self):
-        """启动MCP服务器"""
-        print(f"🚀 启动MCP服务器...")
+        """Start MCP server"""
+        print(f"🚀 Starting MCP server...")
         print(f"   Python: {MCP_PYTHON}")
         print(f"   Command: {MCP_COMMAND}")
         print(f"   CWD: {MCP_SERVER_PATH}")
         
-        # 检查文件是否存在
+        # Check if files exist
         if not os.path.exists(MCP_PYTHON):
-            raise Exception(f"Python解释器不存在: {MCP_PYTHON}")
+            raise Exception(f"Python interpreter not found: {MCP_PYTHON}")
         if not os.path.exists(MCP_COMMAND):
-            raise Exception(f"MCP命令不存在: {MCP_COMMAND}")
+            raise Exception(f"MCP command not found: {MCP_COMMAND}")
         
-        # 设置环境变量
+        # Set environment variables
         env = os.environ.copy()
         env['PYTHONDONTWRITEBYTECODE'] = '1'
         env.pop('DEBUGPY_LAUNCHER_PORT', None)
         env.pop('PYDEVD_LOAD_VALUES_ASYNC', None)
         
-        # 启动进程
+        # Start process
         self.process = await asyncio.create_subprocess_exec(
             MCP_PYTHON, MCP_COMMAND,
             stdin=asyncio.subprocess.PIPE,
@@ -52,12 +52,12 @@ class MCPTester:
             env=env
         )
         
-        print(f"✅ 进程已启动，PID: {self.process.pid}")
+        print(f"✅ Process started, PID: {self.process.pid}")
         
-        # 等待服务器启动
+        # Wait for server to start
         await asyncio.sleep(2)
         
-        # 检查进程状态
+        # Check process status
         if self.process.returncode is not None:
             stderr_output = ""
             if self.process.stderr:
@@ -68,12 +68,12 @@ class MCPTester:
                     stderr_output = stderr_data.decode()
                 except:
                     pass
-            raise Exception(f"进程启动失败: {stderr_output}")
+            raise Exception(f"Process failed to start: {stderr_output}")
     
     async def send_request(self, method: str, params: dict = None) -> dict:
-        """发送JSON-RPC请求"""
+        """Send JSON-RPC request"""
         if not self.process or not self.process.stdin:
-            raise Exception("进程未启动")
+            raise Exception("Process not started")
         
         request_id = self.get_next_id()
         request = {
@@ -83,29 +83,29 @@ class MCPTester:
             "params": params or {}
         }
         
-        print(f"📤 发送请求: {method}")
+        print(f"📤 Sending request: {method}")
         print(f"   ID: {request_id}")
-        print(f"   参数: {json.dumps(params, indent=2, ensure_ascii=False)}")
+        print(f"   Parameters: {json.dumps(params, indent=2, ensure_ascii=False)}")
         
-        # 发送请求
+        # Send request
         request_line = json.dumps(request, ensure_ascii=False) + "\n"
         self.process.stdin.write(request_line.encode('utf-8'))
         await self.process.stdin.drain()
         
-        # 读取响应
+        # Read response
         response = await self.read_response()
         
         if "error" in response:
-            print(f"❌ 错误响应: {response['error']}")
-            raise Exception(f"MCP错误: {response['error']}")
+            print(f"❌ Error response: {response['error']}")
+            raise Exception(f"MCP error: {response['error']}")
         
-        print(f"✅ 成功响应")
+        print(f"✅ Success response")
         return response.get("result", {})
     
     async def send_notification(self, method: str, params: dict = None):
-        """发送通知（无响应）"""
+        """Send notification (no response)"""
         if not self.process or not self.process.stdin:
-            raise Exception("进程未启动")
+            raise Exception("Process not started")
         
         notification = {
             "jsonrpc": "2.0",
@@ -113,16 +113,16 @@ class MCPTester:
             "params": params or {}
         }
         
-        print(f"📢 发送通知: {method}")
+        print(f"📢 Sending notification: {method}")
         
         notification_line = json.dumps(notification, ensure_ascii=False) + "\n"
         self.process.stdin.write(notification_line.encode('utf-8'))
         await self.process.stdin.drain()
     
     async def read_response(self, timeout: float = 30.0) -> dict:
-        """读取JSON响应"""
+        """Read JSON response"""
         if not self.process or not self.process.stdout:
-            raise Exception("进程不可用")
+            raise Exception("Process not available")
         
         max_attempts = 50
         attempt = 0
@@ -136,12 +136,12 @@ class MCPTester:
                 )
                 
                 if not line:
-                    raise Exception("服务器连接断开")
+                    raise Exception("Server connection lost")
                 
                 line_str = line.decode('utf-8').strip()
                 collected_lines.append(line_str)
                 
-                print(f"📥 收到数据: {line_str[:100]}{'...' if len(line_str) > 100 else ''}")
+                print(f"📥 Received data: {line_str[:100]}{'...' if len(line_str) > 100 else ''}")
                 
                 if not line_str:
                     attempt += 1
@@ -152,24 +152,24 @@ class MCPTester:
                     if isinstance(data, dict) and data.get("jsonrpc") == "2.0":
                         return data
                 except json.JSONDecodeError:
-                    print(f"   ⚠️  非JSON数据，继续读取...")
+                    print(f"   ⚠️  Non-JSON data, continue reading...")
                 
                 attempt += 1
                 
             except asyncio.TimeoutError:
-                print(f"   ⏰ 读取超时，尝试 {attempt + 1}/{max_attempts}")
+                print(f"   ⏰ Read timeout, attempt {attempt + 1}/{max_attempts}")
                 attempt += 1
                 continue
         
-        print(f"❌ 未找到有效响应，收集到的行:")
+        print(f"❌ No valid response found, collected lines:")
         for i, line in enumerate(collected_lines[-10:]):
             print(f"   {i}: {line}")
         
-        raise Exception("未找到有效的JSON-RPC响应")
+        raise Exception("No valid JSON-RPC response found")
     
     async def initialize(self):
-        """初始化MCP连接"""
-        print("\n🔧 初始化MCP连接...")
+        """Initialize MCP connection"""
+        print("\n🔧 Initializing MCP connection...")
         
         params = {
             "protocolVersion": "2024-11-05",
@@ -183,30 +183,30 @@ class MCPTester:
         }
         
         result = await self.send_request("initialize", params)
-        print(f"   服务器能力: {json.dumps(result.get('capabilities', {}), indent=2, ensure_ascii=False)}")
+        print(f"   Server capabilities: {json.dumps(result.get('capabilities', {}), indent=2, ensure_ascii=False)}")
         
-        # 发送初始化完成通知
+        # Send initialized notification
         await self.send_notification("notifications/initialized")
-        print("✅ 初始化完成")
+        print("✅ Initialization complete")
     
     async def list_tools(self):
-        """获取工具列表"""
-        print("\n🔍 获取工具列表...")
+        """Get tool list"""
+        print("\n🔍 Getting tool list...")
         
         result = await self.send_request("tools/list")
         tools = result.get("tools", [])
         
-        print(f"   找到 {len(tools)} 个工具:")
+        print(f"   Found {len(tools)} tools:")
         for tool in tools:
             print(f"   - {tool.get('name')}: {tool.get('description', 'N/A')}")
         
         return tools
     
     async def test_search_authors(self, query: str = "Jiajing Wu", limit: int = 10):
-        """测试search_authors工具"""
-        print(f"\n🔎 测试search_authors工具...")
-        print(f"   查询: {query}")
-        print(f"   限制: {limit}")
+        """Test search_authors tool"""
+        print(f"\n🔎 Testing search_authors tool...")
+        print(f"   Query: {query}")
+        print(f"   Limit: {limit}")
         
         params = {
             "name": "search_authors",
@@ -218,10 +218,10 @@ class MCPTester:
         
         result = await self.send_request("tools/call", params)
         
-        print(f"📊 搜索结果:")
+        print(f"📊 Search results:")
         print(json.dumps(result, indent=2, ensure_ascii=False))
         
-        # 解析结果
+        # Parse results
         if "content" in result:
             for content_item in result["content"]:
                 if content_item.get("type") == "text":
@@ -229,27 +229,27 @@ class MCPTester:
                         data = json.loads(content_item["text"])
                         if "authors" in data:
                             authors = data["authors"]
-                            print(f"\n   找到 {len(authors)} 位作者:")
-                            for i, author in enumerate(authors[:5], 1):  # 只显示前5个
+                            print(f"\n   Found {len(authors)} authors:")
+                            for i, author in enumerate(authors[:5], 1):  # Only show first 5
                                 print(f"   {i}. {author.get('name', 'N/A')}")
                                 print(f"      ID: {author.get('authorId', 'N/A')}")
-                                print(f"      论文数: {author.get('paperCount', 'N/A')}")
-                                print(f"      引用数: {author.get('citationCount', 'N/A')}")
+                                print(f"      Papers: {author.get('paperCount', 'N/A')}")
+                                print(f"      Citations: {author.get('citationCount', 'N/A')}")
                                 if author.get('affiliations'):
-                                    print(f"      机构: {author['affiliations'][0] if author['affiliations'] else 'N/A'}")
+                                    print(f"      Affiliation: {author['affiliations'][0] if author['affiliations'] else 'N/A'}")
                                 print()
                     except json.JSONDecodeError:
-                        print(f"   文本内容: {content_item['text'][:200]}...")
+                        print(f"   Text content: {content_item['text'][:200]}...")
         
         return result
     
     async def cleanup(self):
-        """清理资源"""
-        print("\n🧹 清理资源...")
+        """Clean up resources"""
+        print("\n🧹 Cleaning up resources...")
         
         if self.process:
             try:
-                # 尝试优雅关闭
+                # Try graceful shutdown
                 if self.process.returncode is None:
                     await self.send_notification("notifications/shutdown")
                     
@@ -257,36 +257,36 @@ class MCPTester:
                         self.process.stdin.close()
                         await self.process.stdin.wait_closed()
                     
-                    # 等待进程结束
+                    # Wait for process to end
                     try:
                         await asyncio.wait_for(self.process.wait(), timeout=5.0)
                     except asyncio.TimeoutError:
-                        print("   ⚠️  进程未正常结束，强制终止")
+                        print("   ⚠️  Process did not end normally, force terminating")
                         self.process.kill()
                         await self.process.wait()
                 
-                print("✅ 清理完成")
+                print("✅ Cleanup complete")
             except Exception as e:
-                print(f"⚠️  清理时出错: {e}")
+                print(f"⚠️  Error during cleanup: {e}")
 
 async def main():
-    """主测试函数"""
-    print("🧪 MCP search_authors 工具测试")
+    """Main test function"""
+    print("🧪 MCP search_authors Tool Test")
     print("=" * 50)
     
     tester = MCPTester()
     
     try:
-        # 启动服务器
+        # Start server
         await tester.start_server()
         
-        # 初始化连接
+        # Initialize connection
         await tester.initialize()
         
-        # 获取工具列表
+        # Get tool list
         tools = await tester.list_tools()
         
-        # 检查search_authors工具是否存在
+        # Check if search_authors tool exists
         search_authors_tool = None
         for tool in tools:
             if tool.get("name") == "search_authors":
@@ -294,14 +294,14 @@ async def main():
                 break
         
         if not search_authors_tool:
-            print("❌ 未找到search_authors工具")
+            print("❌ search_authors tool not found")
             return
         
-        print(f"✅ 找到search_authors工具:")
-        print(f"   描述: {search_authors_tool.get('description', 'N/A')}")
-        print(f"   参数: {json.dumps(search_authors_tool.get('inputSchema', {}), indent=2, ensure_ascii=False)}")
+        print(f"✅ Found search_authors tool:")
+        print(f"   Description: {search_authors_tool.get('description', 'N/A')}")
+        print(f"   Parameters: {json.dumps(search_authors_tool.get('inputSchema', {}), indent=2, ensure_ascii=False)}")
         
-        # 测试不同的查询
+        # Test different queries
         test_queries = [
             ("Jiajing Wu", 10),
             ("Andrew Ng", 5),
@@ -311,14 +311,14 @@ async def main():
         for query, limit in test_queries:
             try:
                 await tester.test_search_authors(query, limit)
-                print(f"✅ 查询 '{query}' 成功")
+                print(f"✅ Query '{query}' successful")
             except Exception as e:
-                print(f"❌ 查询 '{query}' 失败: {e}")
+                print(f"❌ Query '{query}' failed: {e}")
             
             print("-" * 30)
     
     except Exception as e:
-        print(f"❌ 测试失败: {e}")
+        print(f"❌ Test failed: {e}")
         import traceback
         traceback.print_exc()
     
@@ -326,16 +326,16 @@ async def main():
         await tester.cleanup()
 
 if __name__ == "__main__":
-    # 检查Python版本
+    # Check Python version
     if sys.version_info < (3, 7):
-        print("❌ 需要Python 3.7或更高版本")
+        print("❌ Python 3.7 or higher required")
         sys.exit(1)
     
-    # 运行测试
+    # Run test
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        print("\n⚠️  用户中断测试")
+        print("\n⚠️  User interrupted test")
     except Exception as e:
-        print(f"❌ 运行错误: {e}")
+        print(f"❌ Runtime error: {e}")
         sys.exit(1)

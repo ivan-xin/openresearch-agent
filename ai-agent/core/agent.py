@@ -1,5 +1,5 @@
 """
-核心Agent类 - 简化版（移除缓存）
+Core Agent Class
 """
 import asyncio
 import uuid
@@ -23,29 +23,29 @@ from utils.logger import get_logger
 logger = get_logger(__name__)
 
 class AcademicAgent:
-    """学术研究AI Agent核心类 - 简化版"""
+    """Academic Research AI Agent Core Class"""
     
     def __init__(self):
-        # 初始化核心服务
+        # Initialize core services
         self.llm_service = LLMService()
         self.mcp_client = MCPClient() 
         self.context_manager = ContextManager()
         
-        # 初始化核心组件
+        # Initialize core components
         self.intent_analyzer = IntentAnalyzer(self.llm_service)
         self.task_orchestrator = TaskOrchestrator()
         self.response_integrator = ResponseIntegrator(self.llm_service)
         
-        # 状态管理
+        # State management
         self.active_conversations: Dict[str, Conversation] = {}
         self.processing_queries: Dict[str, bool] = {}
     
     async def initialize(self):
-        """初始化Agent"""
+        """Initialize Agent"""
         try:
             logger.info("Initializing Academic Agent")
             
-            # 初始化上下文管理器（包含数据库初始化）
+            # Initialize context manager (including database initialization)
             await self.llm_service.initialize()
             await self.mcp_client.initialize()
             await self.context_manager.initialize()
@@ -57,15 +57,15 @@ class AcademicAgent:
             raise
 
     async def _extract_context_for_intent(self, conversation: Conversation) -> Dict[str, Any]:
-        """提取用于意图分析的上下文"""
+        """Extract context for intent analysis"""
         context = {}
         
         if hasattr(conversation, 'messages') and conversation.messages:
-            # 获取最近的意图类型
+            # Get recent intent types
             recent_intents = []
-            for message in conversation.messages[-5:]:  # 最近5条消息
+            for message in conversation.messages[-5:]:  # Last 5 messages
                 if hasattr(message, 'role') and message.role == "assistant" and hasattr(message, 'metadata'):
-                    # 确保 metadata 是字典类型
+                    # Ensure metadata is dictionary type
                     metadata = message.metadata
                     if isinstance(metadata, str):
                         try:
@@ -76,7 +76,7 @@ class AcademicAgent:
                     elif not isinstance(metadata, dict):
                         metadata = {}
                     
-                    # 现在安全地使用 get 方法
+                    # Now safely use get method
                     if metadata.get("intent_type"):
                         recent_intents.append(metadata["intent_type"])
             
@@ -87,24 +87,24 @@ class AcademicAgent:
 
     
     async def _extract_context_for_response(self, conversation: Conversation) -> Dict[str, Any]:
-        """提取用于响应生成的上下文"""
+        """Extract context for response generation"""
         context = {}
         
         if hasattr(conversation, 'messages') and conversation.messages:
             context["conversation_length"] = len(conversation.messages)
-            context["recent_topics"] = []  # 可以添加主题提取逻辑
+            context["recent_topics"] = []  # Can add topic extraction logic
             
-            # 提取最近的查询类型
+            # Extract recent query types
             recent_queries = []
             for message in conversation.messages[-10:]:
                 if hasattr(message, 'role') and message.role == "user":
-                    recent_queries.append(message.content[:50])  # 前50个字符
+                    recent_queries.append(message.content[:50])  # First 50 characters
             context["recent_queries"] = recent_queries
         
         return context
 
     async def _execute_task_plan(self, task_plan: TaskPlan, query_id: str) -> Dict[str, Any]:
-        """执行任务计划 - 支持依赖管理和并行执行"""
+        """Execute task plan - Support dependency management and parallel execution"""
         results = {}
         completed_task_ids = set()
         failed_task_ids = set()
@@ -114,30 +114,30 @@ class AcademicAgent:
                     query_id=query_id,
                     initial_stats=task_plan.get_completion_stats())
             
-            # 循环执行直到所有任务完成或失败
-            max_iterations = len(task_plan.tasks) * 2  # 防止无限循环
+            # Loop execution until all tasks complete or fail
+            max_iterations = len(task_plan.tasks) * 2  # Prevent infinite loop
             iteration = 0
             
             while not task_plan.is_completed() and iteration < max_iterations:
                 iteration += 1
                 
-                # 获取可以执行的任务
+                # Get executable tasks
                 ready_tasks = task_plan.get_ready_tasks(completed_task_ids)
                 
                 if not ready_tasks:
-                    # 没有可执行的任务，检查是否存在问题
+                    # No executable tasks, check if there's a problem
                     pending_tasks = task_plan.get_pending_tasks()
                     if pending_tasks:
                         logger.warning("No ready tasks found but pending tasks exist", 
                                     pending_task_ids=[t.id for t in pending_tasks],
                                     completed_ids=list(completed_task_ids),
                                     failed_ids=list(failed_task_ids))
-                        # 强制执行第一个待处理任务，避免死锁
+                        # Force execute first pending task to avoid deadlock
                         ready_tasks = [pending_tasks[0]]
                     else:
                         break
                 
-                # 分离可并行和必须串行的任务
+                # Separate parallel and serial tasks
                 parallel_tasks = task_plan.get_parallel_tasks(ready_tasks)
                 serial_tasks = task_plan.get_serial_tasks(ready_tasks)
                 
@@ -146,28 +146,28 @@ class AcademicAgent:
                         parallel_count=len(parallel_tasks),
                         serial_count=len(serial_tasks))
                 
-                # 并行执行可并行的任务
+                # Execute parallel tasks
                 if parallel_tasks:
                     parallel_results = await self._execute_parallel_tasks(parallel_tasks, query_id)
                     results.update(parallel_results)
                     
-                    # 更新任务状态
+                    # Update task status
                     for task in parallel_tasks:
                         if task.id in parallel_results:
                             result = parallel_results[task.id]
-                            # 修复：确保 result 是字典类型
+                            # Fix: Ensure result is dictionary type
                             if isinstance(result, dict) and result.get("error"):
                                 task.mark_failed(result["error"])
                                 failed_task_ids.add(task.id)
                             elif isinstance(result, str) and "error" in result.lower():
-                                # 如果结果是错误字符串
+                                # If result is error string
                                 task.mark_failed(result)
                                 failed_task_ids.add(task.id)
                             else:
                                 task.mark_completed()
                                 completed_task_ids.add(task.id)
                 
-                # 串行执行必须串行的任务
+                # Execute serial tasks
                 for task in serial_tasks:
                     try:
                         logger.info("Executing serial task", 
@@ -176,7 +176,7 @@ class AcademicAgent:
                         
                         task.mark_started()
                         
-                        # 更新任务参数（可能依赖前面任务的结果）
+                        # Update task parameters (may depend on previous task results)
                         updated_parameters = self._update_task_parameters(task, results)
                         
                         result = await self._execute_single_task(task, updated_parameters)
@@ -213,7 +213,7 @@ class AcademicAgent:
 
 
     async def _execute_parallel_tasks(self, tasks: List[Task], query_id: str) -> Dict[str, Any]:
-        """并行执行任务组"""
+        """Execute parallel tasks"""
         logger.info("Executing parallel tasks", 
                 query_id=query_id,
                 task_count=len(tasks),
@@ -229,11 +229,11 @@ class AcademicAgent:
                 logger.error("Parallel task failed", task_id=task.id, error=error_msg)
                 return task.id, {"error": error_msg}
         
-        # 使用 asyncio.gather 并行执行
+        # Use asyncio.gather for parallel execution
         task_coroutines = [execute_single_task_wrapper(task) for task in tasks]
         task_results = await asyncio.gather(*task_coroutines, return_exceptions=True)
         
-        # 整理结果
+        # Organize results
         results = {}
         for result in task_results:
             if isinstance(result, Exception):
@@ -246,10 +246,10 @@ class AcademicAgent:
         return results
 
     async def _execute_single_task(self, task: Task, parameters: Dict[str, Any]) -> Any:
-        """执行单个任务"""
+        """Execute single task"""
         try:
             if task.type == TaskType.MCP_TOOL_CALL:
-                # 从参数中提取工具名和参数
+                # Extract tool name and arguments from parameters
                 tool_name = parameters.get("tool_name")
                 arguments = parameters.get("arguments", {})
                 
@@ -257,7 +257,7 @@ class AcademicAgent:
                     raise ValueError(f"Missing tool_name in task parameters: {parameters}")
                 
                 result = await self.mcp_client.call_tool(tool_name, arguments)
-                # 确保返回字典格式
+                # Ensure return dictionary format
                 if isinstance(result, str):
                     return {"content": result, "type": "text"}
                 elif isinstance(result, dict):
@@ -266,7 +266,7 @@ class AcademicAgent:
                     return {"content": str(result), "type": "unknown"}
             
             elif task.type == TaskType.LLM_GENERATION:
-                # LLM生成任务
+                # LLM generation task
                 prompt = parameters.get("prompt")
                 model_params = parameters.get("model_params", {})
                 
@@ -274,7 +274,7 @@ class AcademicAgent:
                     raise ValueError(f"Missing prompt in LLM task parameters: {parameters}")
                 
                 result = await self.llm_service.generate_text(prompt, **model_params)
-                # 确保返回字典格式
+                # Ensure return dictionary format
                 if isinstance(result, str):
                     return {"content": result, "type": "text"}
                 elif isinstance(result, dict):
@@ -283,14 +283,14 @@ class AcademicAgent:
                     return {"content": str(result), "type": "unknown"}
             
             elif task.type == TaskType.RESPONSE_GENERATION:
-                # 响应生成任务
+                # Response generation task
                 content = parameters.get("content")
                 format_type = parameters.get("format_type", "text")
                 
                 if not content:
                     raise ValueError(f"Missing content in response task parameters: {parameters}")
                 
-                # 这里可以根据format_type进行不同的格式化处理
+                # Can do different formatting based on format_type here
                 return {"formatted_content": content, "format": format_type}
             
             else:
@@ -302,20 +302,20 @@ class AcademicAgent:
 
 
     def _update_task_parameters(self, task: Task, previous_results: Dict[str, Any]) -> Dict[str, Any]:
-        """根据前面任务的结果更新当前任务的参数"""
+        """Update current task parameters based on previous task results"""
         parameters = task.parameters.copy()
         
-        # 特殊处理：如果是获取论文详情任务，且依赖搜索任务
+        # Special handling: If getting paper details task and depends on search task
         if (task.type == TaskType.MCP_TOOL_CALL and 
             parameters.get("tool_name") == "get_paper_details" and 
             task.dependencies):
             
-            # 从依赖任务的结果中提取论文ID
+            # Extract paper ID from dependency task results
             for dep_task_id in task.dependencies:
                 if dep_task_id in previous_results:
                     dep_result = previous_results[dep_task_id]
                     
-                    # 确保 dep_result 是字典类型
+                    # Ensure dep_result is dictionary type
                     if not isinstance(dep_result, dict):
                         logger.warning("Dependency result is not a dict", 
                                     task_id=task.id, 
@@ -323,16 +323,16 @@ class AcademicAgent:
                                     result_type=type(dep_result).__name__)
                         continue
                     
-                    # 假设搜索结果包含论文列表
+                    # Assume search results contain paper list
                     if "papers" in dep_result:
                         papers = dep_result["papers"]
                         if papers and len(papers) > 0:
-                            # 取第一篇论文的ID
+                            # Take first paper's ID
                             first_paper = papers[0]
                             if isinstance(first_paper, dict):
                                 paper_id = first_paper.get("id") or first_paper.get("paper_id")
                                 if paper_id:
-                                    # 更新参数
+                                    # Update parameters
                                     if "arguments" not in parameters:
                                         parameters["arguments"] = {}
                                     parameters["arguments"]["paper_id"] = paper_id
@@ -349,16 +349,16 @@ class AcademicAgent:
                                         conversation_id: Optional[str],
                                         user_id: str,
                                         query_id: str) -> Dict[str, Any]:
-        """执行完整的处理流水线"""
+        """Execute complete processing pipeline"""
         
         start_time = datetime.now()
         try:
-            # 1. 获取或创建对话上下文
+            # 1. Get or create conversation context
             conversation = await self._get_or_create_conversation(
                 conversation_id, user_id
             )
             
-            # 2. 通过 context_manager 添加用户消息
+            # 2. Add user message through context_manager
             await self.context_manager.add_message(
                 conversation.id, 
                 "user", 
@@ -366,14 +366,14 @@ class AcademicAgent:
                 {"query_id": query_id}
             )
             
-            # 3. 意图分析
+            # 3. Intent analysis
             logger.info("Starting intent analysis", query_id=query_id)
             intent_result = await self.intent_analyzer.analyze(
                 query, 
                 await self._extract_context_for_intent(conversation)
             )
             
-            # 4. 检查是否需要澄清
+            # 4. Check if clarification needed
             if intent_result.needs_clarification:
                 clarification_response = self._create_clarification_response(intent_result)
                 await self.context_manager.add_message(
@@ -384,17 +384,17 @@ class AcademicAgent:
                 await self.context_manager.update_conversation(conversation)
                 return clarification_response
             
-            # 5. 任务编排
+            # 5. Task orchestration
             logger.info("Creating task plan", query_id=query_id)
             task_plan = await self.task_orchestrator.create_plan(intent_result)
             
-            # 6. 执行任务计划
+            # 6. Execute task plan
             logger.info("Executing task plan", 
                     query_id=query_id,
                     task_stats=task_plan.get_completion_stats())
             execution_results = await self._execute_task_plan(task_plan, query_id)
             
-            # 7. 整合响应
+            # 7. Integrate response
             logger.info("Integrating response", query_id=query_id)
             final_response = await self.response_integrator.integrate(
                 query,
@@ -403,17 +403,17 @@ class AcademicAgent:
                 await self._extract_context_for_response(conversation)
             )
             
-            # 8. 确保 final_response 是字典类型
+            # 8. Ensure final_response is dictionary type
             if not isinstance(final_response, dict):
                 logger.warning("Response integrator returned non-dict result", 
                             result_type=type(final_response).__name__)
                 final_response = {"content": str(final_response)}
             
-            # 确保有 content 字段
+            # Ensure content field exists
             if "content" not in final_response:
-                final_response["content"] = "抱歉，我无法生成合适的回复。"
+                final_response["content"] = "Sorry, I cannot generate an appropriate response."
             
-            # 9. 通过 context_manager 添加助手回复
+            # 9. Add assistant reply through context_manager
             await self.context_manager.add_message(
                 conversation.id,
                 "assistant", 
@@ -426,14 +426,14 @@ class AcademicAgent:
                 }
             )
             
-            # 10. 保存对话
+            # 10. Save conversation
             await self.context_manager.update_conversation(conversation)
             
-            # 11. 计算处理时间 - 修复时区问题
+            # 11. Calculate processing time - Fix timezone issue
             end_time = datetime.now()
             processing_time = (end_time - start_time).total_seconds()
             
-            # 12. 添加查询元数据
+            # 12. Add query metadata
             final_response["query_id"] = query_id
             final_response["conversation_id"] = conversation.id
             final_response["task_execution_stats"] = task_plan.get_completion_stats()
@@ -452,14 +452,14 @@ class AcademicAgent:
 
 
     def _create_clarification_response(self, intent_result: IntentAnalysisResult) -> Dict[str, Any]:
-        """创建澄清响应"""
-        # 根据意图类型生成不同的澄清问题
+        """Create clarification response"""
+        # Generate different clarification questions based on intent type
         intent_type = intent_result.primary_intent.type.value
         
         clarification_messages = {
-            "search_papers": "您想搜索什么主题的论文？请提供更具体的关键词。",
-            "search_authors": "您想查找哪位作者的信息？请提供作者姓名。",
-            "unknown": "请提供更多信息，以便我更好地理解您的需求。"
+            "search_papers": "What topic of papers would you like to search? Please provide more specific keywords.",
+            "search_authors": "Which author's information would you like to find? Please provide the author's name.",
+            "unknown": "Please provide more information so I can better understand your needs."
         }
         
         content = clarification_messages.get(intent_type, clarification_messages["unknown"])
@@ -474,9 +474,9 @@ class AcademicAgent:
         }
 
     def _create_error_response(self, error_message: str, query_id: str) -> Dict[str, Any]:
-        """创建错误响应"""
+        """Create error response"""
         return {
-            "content": f"抱歉，处理您的请求时遇到了问题：{error_message}",
+            "content": f"Sorry, encountered a problem while processing your request: {error_message}",
             "error": True,
             "query_id": query_id,
             "metadata": {
@@ -488,8 +488,8 @@ class AcademicAgent:
                           query: str, 
                           conversation_id: Optional[str] = None,
                           user_id: str = "default_user") -> Dict[str, Any]:
-        """处理用户查询的主要入口方法"""
-        # 生成查询ID用于跟踪
+        """Main entry method for processing user queries"""
+        # Generate query ID for tracking
         query_id = str(uuid.uuid4())
         
         try:
@@ -499,10 +499,10 @@ class AcademicAgent:
                        conversation_id=conversation_id,
                        user_id=user_id)
             
-            # 防止重复处理
+            # Prevent duplicate processing
             if conversation_id and conversation_id in self.processing_queries:
                 return {
-                    "content": "正在处理您的上一个请求，请稍候...",
+                    "content": "Processing your previous request, please wait...",
                     "status": "processing"
                 }
             
@@ -510,7 +510,7 @@ class AcademicAgent:
                 self.processing_queries[conversation_id] = True
             
             try:
-                # 执行处理流程
+                # Execute processing pipeline
                 result = await self._execute_processing_pipeline(
                     query, conversation_id, user_id, query_id
                 )
@@ -518,7 +518,7 @@ class AcademicAgent:
                 return result
                 
             finally:
-                # 清理处理状态
+                # Clean up processing status
                 if conversation_id and conversation_id in self.processing_queries:
                     del self.processing_queries[conversation_id]
             
@@ -531,18 +531,18 @@ class AcademicAgent:
     async def _get_or_create_conversation(self,
                                         conversation_id: Optional[str],
                                         user_id: str) -> Conversation:
-        """获取或创建对话"""
+        """Get or create conversation"""
         if conversation_id and conversation_id in self.active_conversations:
             return self.active_conversations[conversation_id]
         
         if conversation_id:
-            # 尝试从数据库加载
+            # Try to load from database
             conversation = await self.context_manager.get_conversation(conversation_id)
             if conversation:
                 self.active_conversations[conversation_id] = conversation
                 return conversation
         
-        # 创建新对话
+        # Create new conversation
         conversation = await self.context_manager.create_conversation(
             user_id=user_id,
             conversation_id=conversation_id
@@ -552,21 +552,21 @@ class AcademicAgent:
         return conversation
 
     async def get_task_plan_debug_info(self, query: str, user_id: str = "debug_user") -> Dict[str, Any]:
-        """获取任务计划的调试信息（用于开发和测试）"""
+        """Get task plan debug information (for development and testing)"""
         try:
-            # 创建临时对话
+            # Create temporary conversation
             conversation = await self._get_or_create_conversation(None, user_id)
             
-            # 意图分析
+            # Intent analysis
             intent_result = await self.intent_analyzer.analyze(
                 query, 
                 await self._extract_context_for_intent(conversation)
             )
             
-            # 创建任务计划
+            # Create task plan
             task_plan = await self.task_orchestrator.create_plan(intent_result)
             
-            # 返回调试信息
+            # Return debug information
             debug_info = {
                 "query": query,
                 "intent_analysis": {
@@ -589,7 +589,7 @@ class AcademicAgent:
             return {"error": str(e)}
 
     def _analyze_execution_flow(self, task_plan: TaskPlan) -> Dict[str, Any]:
-        """分析任务执行流程"""
+        """Analyze task execution flow"""
         flow_info = {
             "total_tasks": len(task_plan.tasks),
             "parallel_tasks": [],
@@ -598,7 +598,7 @@ class AcademicAgent:
             "execution_phases": []
         }
         
-        # 分析并行和串行任务
+        # Analyze parallel and serial tasks
         for task in task_plan.tasks:
             task_info = {
                 "id": task.id,
@@ -612,24 +612,24 @@ class AcademicAgent:
             else:
                 flow_info["serial_tasks"].append(task_info)
         
-        # 分析依赖链
+        # Analyze dependency chains
         dependency_chains = self._find_dependency_chains(task_plan.tasks)
         flow_info["dependency_chains"] = dependency_chains
         
-        # 模拟执行阶段
+        # Simulate execution phases
         execution_phases = self._simulate_execution_phases(task_plan)
         flow_info["execution_phases"] = execution_phases
         
         return flow_info
 
     def _find_dependency_chains(self, tasks: List[Task]) -> List[List[str]]:
-        """找出依赖链"""
+        """Find dependency chains"""
         chains = []
         visited = set()
         
         for task in tasks:
             if task.id not in visited and not task.dependencies:
-                # 从无依赖的任务开始构建链
+                # Build chain starting from tasks with no dependencies
                 chain = self._build_chain(task, tasks, visited)
                 if len(chain) > 1:
                     chains.append(chain)
@@ -637,11 +637,11 @@ class AcademicAgent:
         return chains
 
     def _build_chain(self, start_task: Task, all_tasks: List[Task], visited: set) -> List[str]:
-        """构建从指定任务开始的依赖链"""
+        """Build dependency chain starting from specified task"""
         chain = [start_task.id]
         visited.add(start_task.id)
         
-        # 找到依赖当前任务的下一个任务
+        # Find next task that depends on current task
         for task in all_tasks:
             if start_task.id in task.dependencies and task.id not in visited:
                 chain.extend(self._build_chain(task, all_tasks, visited))
@@ -650,7 +650,7 @@ class AcademicAgent:
         return chain
 
     def _simulate_execution_phases(self, task_plan: TaskPlan) -> List[Dict[str, Any]]:
-        """模拟执行阶段"""
+        """Simulate execution phases"""
         phases = []
         completed_ids = set()
         phase_num = 1
@@ -673,20 +673,20 @@ class AcademicAgent:
             
             phases.append(phase_info)
             
-            # 模拟完成这些任务
+            # Simulate completing these tasks
             for task in ready_tasks:
                 completed_ids.add(task.id)
             
             phase_num += 1
             
-            # 防止无限循环
+            # Prevent infinite loop
             if phase_num > 10:
                 break
         
         return phases
     
     async def get_conversation_history(self, conversation_id: str) -> Optional[Dict[str, Any]]:
-        """获取对话历史"""
+        """Get conversation history"""
         try:
             conversation = await self.context_manager.get_conversation(conversation_id)
             if not conversation:
@@ -718,7 +718,7 @@ class AcademicAgent:
             return None
     
     async def get_user_conversations(self, user_id: str) -> List[Dict[str, Any]]:
-        """获取用户的对话列表"""
+        """Get user's conversation list"""
         try:
             conversations = await self.context_manager.get_user_conversations(user_id)
             
@@ -739,18 +739,18 @@ class AcademicAgent:
             return []
     
     async def cleanup(self):
-        """清理资源"""
+        """Clean up resources"""
         try:
             logger.info("Starting agent cleanup")
             
-            # 保存所有活跃对话
+            # Save all active conversations
             for conversation in self.active_conversations.values():
                 await self.context_manager.update_conversation(conversation)
             
-            # 清理上下文管理器
+            # Clean up context manager
             await self.context_manager.cleanup()
             
-            # 清理状态
+            # Clean up status
             self.active_conversations.clear()
             self.processing_queries.clear()
             

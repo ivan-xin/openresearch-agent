@@ -1,12 +1,12 @@
 """
-响应工具 - MVP版本
+Response Tools - MVP Version
 """
 from typing import Any, Dict
 from fastapi import HTTPException
 from utils.time_utils import now_ms
 
-def success_response(data: Any = None, message: str = "操作成功") -> Dict[str, Any]:
-    """成功响应"""
+def success_response(data: Any = None, message: str = "Operation successful") -> Dict[str, Any]:
+    """Success response"""
     return {
         "success": True,
         "message": message,
@@ -15,7 +15,7 @@ def success_response(data: Any = None, message: str = "操作成功") -> Dict[st
     }
 
 def error_response(message: str, code: str = "ERROR") -> Dict[str, Any]:
-    """错误响应"""
+    """Error response"""
     return {
         "success": False,
         "error": {
@@ -25,22 +25,22 @@ def error_response(message: str, code: str = "ERROR") -> Dict[str, Any]:
         "timestamp": now_ms()
     }
 
-def not_found_error(resource: str = "资源"):
-    """404错误"""
+def not_found_error(resource: str = "Resource"):
+    """404 error"""
     raise HTTPException(
         status_code=404,
-        detail=f"{resource}不存在"
+        detail=f"{resource} not found"
     )
 
 def validation_error(message: str):
-    """验证错误"""
+    """Validation error"""
     raise HTTPException(
         status_code=422,
         detail=message
     )
 
-def internal_error(message: str = "服务器内部错误"):
-    """500错误"""
+def internal_error(message: str = "Internal server error"):
+    """500 error"""
     raise HTTPException(
         status_code=500,
         detail=message

@@ -1,5 +1,5 @@
 """
-会话数据模型
+Conversation Data Model
 """
 import uuid
 from datetime import datetime
@@ -8,20 +8,20 @@ from dataclasses import dataclass, field
 
 @dataclass
 class Conversation:
-    """会话模型"""
+    """Conversation Model"""
     
     id: str = field(default_factory=lambda: str(uuid.uuid4()))
     user_id: str = ""
     title: Optional[str] = None
-    context: Optional[str] = None  # 添加 context 字段
-    is_active: bool = True  # 添加 is_active 字段
-    message_count: int = 0  # 添加 message_count 字段
-    metadata: Dict[str, Any] = field(default_factory=dict)  # 添加 metadata 字段
+    context: Optional[str] = None  # Add context field
+    is_active: bool = True  # Add is_active field
+    message_count: int = 0  # Add message_count field
+    metadata: Dict[str, Any] = field(default_factory=dict)  # Add metadata field
     created_at: datetime = field(default_factory=datetime.now)
     updated_at: datetime = field(default_factory=datetime.now)
     
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典"""
+        """Convert to dictionary"""
         return {
             "id": self.id,
             "user_id": self.user_id,
@@ -36,7 +36,7 @@ class Conversation:
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Conversation":
-        """从字典创建实例"""
+        """Create instance from dictionary"""
         return cls(
             id=data["id"],
             user_id=data["user_id"],
@@ -54,9 +54,9 @@ class Conversation:
         )
     
     def update_title_from_first_message(self, first_message: str):
-        """根据第一条消息生成标题"""
+        """Generate title from first message"""
         if not self.title and first_message:
-            # 简单的标题生成逻辑
+            # Simple title generation logic
             title = first_message[:50].strip()
             if len(first_message) > 50:
                 title += "..."

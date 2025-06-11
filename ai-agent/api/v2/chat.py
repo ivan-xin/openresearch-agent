@@ -1,5 +1,5 @@
 """
-聊天相关API路由
+Chat related API routes
 """
 from fastapi import APIRouter, Depends, HTTPException, Request
 from typing import Optional
@@ -15,12 +15,12 @@ router = APIRouter()
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(request: ChatRequest, req: Request) -> ChatResponse:
-    """处理聊天请求"""
+    """Handle chat request"""
     try:
         agent = req.app.state.agent
         logger.info("Received chat request", user_id=request.user_id)
         
-        # 查找用户的会话
+        # Find user's conversation
         conversations = await conversation_service.list_conversations(
             user_id=request.user_id, 
             limit=1, 
@@ -28,16 +28,16 @@ async def chat(request: ChatRequest, req: Request) -> ChatResponse:
         )
         
         if conversations:
-            # 用户已有会话，使用第一个（也是唯一的）会话
+            # User has conversation, use the first (and only) one
             conversation_id = conversations[0].id
-            # 添加用户消息到现有会话
+            # Add user message to existing conversation
             await conversation_service.add_message(CreateMessageDTO(
                 conversation_id=conversation_id,
                 role=MessageRole.USER,
                 content=request.message
             ))
         else:
-            # 用户没有会话，创建新会话
+            # User has no conversation, create new one
             logger.info("Creating new conversation for user", user_id=request.user_id)
             conversation_dto = CreateConversationDTO(
                 title=f"User {request.user_id} Conversation",
@@ -49,14 +49,14 @@ async def chat(request: ChatRequest, req: Request) -> ChatResponse:
             )
             conversation_id = conversation.id
         
-        # 调用agent处理查询
+        # Call agent to process query
         result = await agent.process_query(
             query=request.message,
             conversation_id=conversation_id,
             user_id=request.user_id
         )
         
-        # 添加AI回复到会话
+        # Add AI response to conversation
         await conversation_service.add_message(CreateMessageDTO(
             conversation_id=conversation_id,
             role=MessageRole.ASSISTANT,
@@ -77,7 +77,7 @@ async def chat(request: ChatRequest, req: Request) -> ChatResponse:
 
 @router.post("/chat/stream")
 async def chat_stream(request: ChatRequest, req: Request):
-    """流式聊天响应（未来扩展）"""
+    """Streaming chat response (future extension)"""
     logger.info("Stream chat request received but not implemented", user_id=request.user_id)
     
     raise HTTPException(
