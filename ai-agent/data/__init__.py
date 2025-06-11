@@ -15,6 +15,11 @@ from .repositories.message_repository import message_repo
 # 上下文管理器
 from .context_manager import ContextManager
 
+from configs.database_config import database_config
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
+
 # 创建全局上下文管理器实例
 context_manager = ContextManager()
 
@@ -42,6 +47,11 @@ __version__ = "1.0.0-mvp"
 async def initialize_data_layer():
     """初始化数据访问层"""
     try:
+        # if database_config.skip_in_dev:
+        #     logger.info("开发环境跳过数据库初始化")
+        #     await context_manager.initialize_memory_only()
+        #     return True
+
         # 初始化数据库连接
         await db_manager.initialize()
         
