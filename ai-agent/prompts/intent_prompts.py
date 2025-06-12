@@ -39,7 +39,7 @@ class IntentPrompts:
                 - Consider academic research professionalism
                 - Extract useful parameters and entities
                 - Mark for clarification if intent is unclear
-
+                CRITICAL: Your response must be in English only. Do not use Chinese or any other language.
                 Please reply in English with clear formatting."""
     
     def get_clarification_prompt(self, intent_type: str) -> str:

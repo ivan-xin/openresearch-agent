@@ -286,7 +286,7 @@ class LLMService:
                             3. Use professional but understandable language
                             4. Honestly indicate if data is incomplete
                             5. Provide suggestions for further research when appropriate
-
+                            CRITICAL: You MUST respond in English only. Never use Chinese or any other language.
                             Please respond in English, maintaining a professional and friendly tone."""
 
             # Build user message including query and data
