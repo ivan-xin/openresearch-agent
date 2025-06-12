@@ -869,7 +869,7 @@ class ResponseIntegrator:
                     },
                     {
                         "role": "user",
-                        "content": f"User query: {query}\n\nResearch data: {research_data}\n\nPlease generate a natural Chinese response:"
+                        "content": f"User query: {query}\n\nResearch data: {research_data}\n\nPlease generate a natural English response:"
                     }
                 ]
                 

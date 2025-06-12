@@ -287,7 +287,7 @@ class LLMService:
                             4. Honestly indicate if data is incomplete
                             5. Provide suggestions for further research when appropriate
 
-                            Please respond in Chinese, maintaining a professional and friendly tone."""
+                            Please respond in English, maintaining a professional and friendly tone."""
 
             # Build user message including query and data
             user_content = f"""User Query: {user_query}

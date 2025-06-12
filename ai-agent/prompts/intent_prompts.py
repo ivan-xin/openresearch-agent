@@ -40,7 +40,7 @@ class IntentPrompts:
                 - Extract useful parameters and entities
                 - Mark for clarification if intent is unclear
 
-                Please reply in Chinese with clear formatting."""
+                Please reply in English with clear formatting."""
     
     def get_clarification_prompt(self, intent_type: str) -> str:
         """Get prompt for clarification questions"""
